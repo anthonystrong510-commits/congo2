@@ -232,38 +232,48 @@ export const PlansPage: React.FC<PlansPageProps> = ({ onSelectPlan }) => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-12 sm:mt-14 max-w-3xl w-full bg-white/10 backdrop-blur-md rounded-3xl p-5 sm:p-6 border border-white/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left"
+          className="mt-12 sm:mt-16 mb-6 max-w-3xl w-full bg-white/10 backdrop-blur-md rounded-3xl p-5 sm:p-6 border border-white/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-lg"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
               <Shield className="w-6 h-6" />
             </div>
             <div>
               <h4 className="font-bold text-sm text-white">Sécurité Airtel NextGen & Starlink LEO</h4>
-              <p className="text-xs text-white/80 leading-relaxed">
+              <p className="text-xs text-white/80 leading-relaxed mt-0.5">
                 Paiement instantané débité sur votre solde Airtel Money / Lite avec validation cryptée.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="px-3 py-1.5 rounded-xl bg-white text-[#E60000] font-black text-xs uppercase tracking-wider">
+            <span className="px-3.5 py-1.5 rounded-xl bg-white text-[#E60000] font-black text-xs uppercase tracking-wider shadow-sm">
               100% SÉCURISÉ
             </span>
           </div>
         </motion.div>
       </main>
 
-      {/* Footer with clean responsive wrap */}
-      <footer className="w-full border-t border-white/15 bg-black/20 backdrop-blur-md px-4 py-8 text-center text-xs text-white/80">
-        <div className="max-w-7xl mx-auto flex flex-col items-center justify-center gap-3">
-          <div className="flex items-center gap-3 flex-wrap justify-center">
-            <AirtelLogo variant="white" className="h-6" />
-            <span>•</span>
-            <span className="font-bold text-white tracking-widest text-xs">STARLINK™</span>
+      {/* Spacious Uncluttered Responsive Footer */}
+      <footer className="w-full border-t border-white/15 bg-black/30 backdrop-blur-xl mt-16 sm:mt-24 pt-10 pb-12 sm:pt-12 sm:pb-16 px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center text-center gap-5 sm:gap-6">
+          {/* Brand partnership line */}
+          <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+            <AirtelLogo variant="white" size="sm" />
+            <span className="text-white/40 text-xs hidden sm:inline">•</span>
+            <div className="flex items-center gap-1.5 text-xs font-black tracking-widest text-white uppercase">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span>STARLINK™</span>
+            </div>
           </div>
-          <p className="leading-relaxed text-[11px] sm:text-xs text-white/70 max-w-md">
-            © 2026 Airtel Congo & Starlink Constellation. Tous droits réservés.
-          </p>
+
+          {/* Clean metadata copy */}
+          <div className="flex items-center justify-center gap-2.5 sm:gap-4 text-xs text-white/70 flex-wrap leading-relaxed">
+            <span>© 2026 Airtel Congo</span>
+            <span className="text-white/40 hidden sm:inline">•</span>
+            <span>Réseau Satellite Direct-to-Cell</span>
+            <span className="text-white/40 hidden sm:inline">•</span>
+            <span>Tous droits réservés</span>
+          </div>
         </div>
       </footer>
     </div>

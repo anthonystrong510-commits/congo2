@@ -333,14 +333,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         status={telegramStatus}
       />
 
-      {/* Footer with Anti-Overlap Spacing */}
-      <footer className="w-full bg-white border-t border-neutral-200 px-4 py-6 text-center">
-        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-2">
-          <AirtelLogo variant="red" className="h-6" />
-          <p className="text-xs text-neutral-600 font-medium leading-relaxed">
-            En collaboration avec <span className="text-neutral-900 font-bold">STARLINK™</span>
+      {/* Footer with clean responsive spacing */}
+      <footer className="w-full bg-white border-t border-neutral-200 mt-auto py-8 sm:py-10 px-4 sm:px-6 text-center">
+        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-3 sm:gap-4">
+          <AirtelLogo variant="red" size="sm" />
+          <p className="text-xs text-neutral-600 font-medium">
+            En collaboration avec <span className="text-neutral-900 font-bold tracking-wider">STARLINK™</span>
           </p>
-          <p className="text-[11px] text-neutral-400 leading-normal">
+          <p className="text-[11px] text-neutral-400">
             © 2026 Airtel Congo. Tous droits réservés.
           </p>
         </div>

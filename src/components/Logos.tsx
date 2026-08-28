@@ -2,7 +2,7 @@ import React from 'react';
 
 // Exact Airtel iconic loop & signature emblem matching the uploaded logo
 export const AirtelIcon: React.FC<{ className?: string; color?: string }> = ({
-  className = 'w-9 h-9',
+  className = 'w-7 h-7',
   color,
 }) => {
   return (
@@ -20,9 +20,15 @@ export const AirtelIcon: React.FC<{ className?: string; color?: string }> = ({
 
 export const AirtelLogo: React.FC<{
   variant?: 'white' | 'red' | 'nextgen' | 'icon-only';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
   showSubtitle?: boolean;
-}> = ({ variant = 'red', className = 'h-10', showSubtitle = true }) => {
+}> = ({
+  variant = 'red',
+  size = 'md',
+  className = '',
+  showSubtitle = false,
+}) => {
   const isWhite = variant === 'white';
   const isNextGen = variant === 'nextgen';
   const isIconOnly = variant === 'icon-only';
@@ -30,18 +36,31 @@ export const AirtelLogo: React.FC<{
   const fillColor = isWhite ? '#FFFFFF' : '#E60000';
 
   if (isIconOnly) {
-    return <AirtelIcon className={className} color={fillColor} />;
+    const iconSize = size === 'sm' ? 'w-5 h-5' : size === 'lg' ? 'w-10 h-10' : 'w-7 h-7';
+    return <AirtelIcon className={`${iconSize} ${className}`} color={fillColor} />;
   }
+
+  const iconSizes = {
+    sm: 'w-5 h-5',
+    md: 'w-7 h-7',
+    lg: 'w-9 h-9',
+  };
+
+  const textSizes = {
+    sm: 'text-lg',
+    md: 'text-xl sm:text-2xl',
+    lg: 'text-2xl sm:text-3xl',
+  };
 
   return (
     <div className={`inline-flex flex-col items-center select-none ${className}`}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Airtel Iconic Emblem */}
-        <AirtelIcon className="w-8 h-8 drop-shadow-sm" color={fillColor} />
+        <AirtelIcon className={`${iconSizes[size]} drop-shadow-sm`} color={fillColor} />
 
         {/* Airtel Wordmark */}
         <span
-          className={`font-black text-2xl tracking-tighter lowercase leading-none ${
+          className={`font-black tracking-tighter lowercase leading-none ${textSizes[size]} ${
             isWhite ? 'text-white' : 'text-[#E60000]'
           }`}
           style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
@@ -50,13 +69,13 @@ export const AirtelLogo: React.FC<{
         </span>
       </div>
 
-      {/* Subtitle / Slogan */}
+      {/* Optional Subtitle / Slogan */}
       {showSubtitle && (
         <>
           {isNextGen ? (
             <div className="w-full flex flex-col items-center mt-1">
               <div className={`w-full h-[1.5px] rounded-full my-0.5 ${isWhite ? 'bg-white/60' : 'bg-[#E60000]'}`} />
-              <span className={`text-[10px] font-bold tracking-tight uppercase ${isWhite ? 'text-white/90' : 'text-neutral-700'}`}>
+              <span className={`text-[9px] sm:text-[10px] font-bold tracking-tight uppercase ${isWhite ? 'text-white/90' : 'text-neutral-700'}`}>
                 NextGen Security
               </span>
             </div>
@@ -75,13 +94,13 @@ export const AirtelLogo: React.FC<{
   );
 };
 
-export const StarlinkLogo: React.FC<{ className?: string }> = ({ className = 'h-5' }) => {
+export const StarlinkLogo: React.FC<{ className?: string }> = ({ className = '' }) => {
   return (
-    <div className={`inline-flex items-center gap-1.5 flex-wrap justify-center ${className}`}>
-      <span className="text-[10px] uppercase font-bold tracking-widest text-white/80">
+    <div className={`inline-flex items-center gap-1.5 flex-wrap justify-center select-none ${className}`}>
+      <span className="text-[10px] uppercase font-bold tracking-widest text-white/80 whitespace-nowrap">
         EN COLLABORATION AVEC
       </span>
-      <div className="flex items-center gap-1 font-black text-sm tracking-widest text-white">
+      <div className="flex items-center gap-1 font-black text-xs sm:text-sm tracking-widest text-white whitespace-nowrap">
         <span>STARLINK</span>
         <svg
           viewBox="0 0 24 24"

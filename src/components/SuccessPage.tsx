@@ -230,9 +230,9 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
       </main>
 
       {/* Footer */}
-      <footer className="w-full border-t border-white/15 bg-black/20 backdrop-blur-md px-4 py-6 text-center text-xs text-white/80">
-        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-2">
-          <p className="leading-relaxed">© 2026 Airtel Congo. Partenaire officiel Starlink Direct-to-Cell.</p>
+      <footer className="w-full border-t border-white/15 bg-black/30 backdrop-blur-xl mt-auto py-8 sm:py-10 px-4 sm:px-6 text-center text-xs text-white/70">
+        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-3">
+          <p className="leading-relaxed font-medium">© 2026 Airtel Congo. Partenaire officiel Starlink Direct-to-Cell.</p>
         </div>
       </footer>
     </div>
