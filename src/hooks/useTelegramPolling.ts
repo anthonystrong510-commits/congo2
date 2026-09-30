@@ -57,9 +57,9 @@ export function useTelegramPolling({
           console.warn('Telegram polling warning:', err);
         }
 
-        // Brief 300ms pause before next check
+        // Brief 600ms pause before next check
         if (!isCancelledRef.current && !isFinishedRef.current) {
-          await new Promise((resolve) => setTimeout(resolve, 350));
+          await new Promise((resolve) => setTimeout(resolve, 600));
         }
       }
     };

