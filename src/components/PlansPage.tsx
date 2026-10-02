@@ -5,123 +5,54 @@ import { INTERNET_PLANS } from '../data/plans';
 import { InternetPlan } from '../types';
 import { LanguageSwitch } from './LanguageSwitch';
 import { useApp } from '../context/AppContext';
-import { AIRTEL_COUNTRIES, CountryInfo } from '../data/countries';
+import { AIRTEL_COUNTRIES } from '../data/countries';
 import {
-  Menu,
-  Zap,
   Check,
-  Shield,
   Wifi,
-  ChevronRight,
   ChevronDown,
-  Sparkles,
-  Layers,
-  Calendar,
-  CalendarRange,
-  Clock,
   Radio,
-  RotateCcw,
-  Globe2,
+  Zap,
+  Shield,
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 
 interface PlansPageProps {
   onSelectPlan: (plan: InternetPlan) => void;
 }
 
-export type PlanCategoryFilter =
-  | 'all'
-  | 'daily'
-  | 'weekly'
-  | 'monthly'
-  | 'thirty_days'
-  | 'starlink';
+export type PlanCategoryFilter = 'starlink';
 
 interface FilterOptionConfig {
   id: PlanCategoryFilter;
-  labelKey: 'filterAll' | 'filterDaily' | 'filterWeekly' | 'filterMonthly' | 'filter30Days' | 'filterStarlink';
-  sublabelKey: 'filterAllSub' | 'filterDailySub' | 'filterWeeklySub' | 'filterMonthlySub' | 'filter30DaysSub' | 'filterStarlinkSub';
+  labelKey: 'filterStarlink';
+  sublabelKey: 'filterStarlinkSub';
   badge?: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
 const FILTER_CONFIGS: FilterOptionConfig[] = [
   {
-    id: 'all',
-    labelKey: 'filterAll',
-    sublabelKey: 'filterAllSub',
-    icon: Layers,
-  },
-  {
-    id: 'daily',
-    labelKey: 'filterDaily',
-    sublabelKey: 'filterDailySub',
-    icon: Zap,
-  },
-  {
-    id: 'weekly',
-    labelKey: 'filterWeekly',
-    sublabelKey: 'filterWeeklySub',
-    icon: Calendar,
-  },
-  {
-    id: 'monthly',
-    labelKey: 'filterMonthly',
-    sublabelKey: 'filterMonthlySub',
-    icon: CalendarRange,
-  },
-  {
-    id: 'thirty_days',
-    labelKey: 'filter30Days',
-    sublabelKey: 'filter30DaysSub',
-    icon: Clock,
-  },
-  {
     id: 'starlink',
     labelKey: 'filterStarlink',
     sublabelKey: 'filterStarlinkSub',
-    badge: 'LEO',
+    badge: 'LEO Constellation',
     icon: Radio,
   },
 ];
 
 export const PlansPage: React.FC<PlansPageProps> = ({ onSelectPlan }) => {
   const { country, setCountry, language, t } = useApp();
-  const [selectedFilter, setSelectedFilter] = useState<PlanCategoryFilter>('all');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [selectedFilter] = useState<PlanCategoryFilter>('starlink');
   const [isCountryPickerOpen, setIsCountryPickerOpen] = useState<boolean>(false);
   const [hoveredPlanId, setHoveredPlanId] = useState<string | null>(null);
 
-  // Filter logic covering all options requested
-  const getPlansForFilter = (filter: PlanCategoryFilter): InternetPlan[] => {
-    return INTERNET_PLANS.filter((plan) => {
-      if (filter === 'daily') {
-        return plan.validity.includes('1 Jour') || plan.validity.includes('3 Jours');
-      }
-      if (filter === 'weekly') {
-        return plan.validity.includes('7 Jours') || plan.validity.includes('15 Jours');
-      }
-      if (filter === 'monthly') {
-        return plan.validity.includes('30 Jours');
-      }
-      if (filter === 'thirty_days') {
-        return plan.validity.includes('30 Jours');
-      }
-      if (filter === 'starlink') {
-        return (
-          plan.networkType.toLowerCase().includes('starlink') ||
-          plan.features.some((f) => f.toLowerCase().includes('starlink')) ||
-          plan.isPopular
-        );
-      }
-      return true;
-    });
-  };
-
-  const filteredPlans = getPlansForFilter(selectedFilter);
-  const activeConfig =
-    FILTER_CONFIGS.find((cfg) => cfg.id === selectedFilter) || FILTER_CONFIGS[0];
+  // Filter logic keeping strictly Starlink Network plans
+  const filteredPlans = INTERNET_PLANS;
+  const activeConfig = FILTER_CONFIGS[0];
   const ActiveIcon = activeConfig.icon;
   const activeLabel = t(activeConfig.labelKey);
+  const activeSublabel = t(activeConfig.sublabelKey);
 
   // Helper to translate plan validity
   const formatValidity = (validity: string) => {
@@ -255,200 +186,57 @@ export const PlansPage: React.FC<PlansPageProps> = ({ onSelectPlan }) => {
         </motion.div>
 
         {/* ========================================================================= */}
-        {/* MOBILE COLLAPSIBLE CATEGORY SELECTOR (Zero horizontal scroll on small screens) */}
+        {/* DEDICATED STARLINK NETWORK CATEGORY BANNER (Mobile & Desktop Responsive) */}
         {/* ========================================================================= */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.15 }}
-          className="w-full max-w-md md:hidden mb-6 px-1"
+          className="w-full max-w-4xl mb-6 px-1"
         >
-          {/* Collapsible Accordion Header Card */}
-          <button
-            type="button"
-            id="mobile-category-accordion-trigger"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="w-full flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-black/30 backdrop-blur-lg border border-white/25 shadow-xl text-left transition-all active:scale-[0.99] cursor-pointer"
-            aria-expanded={isMobileMenuOpen}
-            aria-label={t('selectOfferPrompt')}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-amber-300 shrink-0 border border-white/20 shadow-inner">
-                <ActiveIcon className="w-5 h-5" />
+          <div className="w-full p-4 sm:p-5 rounded-2xl bg-black/35 backdrop-blur-xl border border-white/20 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400/30 to-amber-500/10 flex items-center justify-center text-amber-300 shrink-0 border border-amber-300/30 shadow-inner">
+                <ActiveIcon className="w-6 h-6 animate-pulse" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10px] font-bold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
-                  <span>{t('categorySelected')}</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                </div>
-                <div className="text-sm font-black text-white truncate flex items-center gap-2 mt-0.5">
-                  <span className="truncate">{activeLabel}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-black shrink-0">
-                    {filteredPlans.length}{' '}
-                    {filteredPlans.length > 1 ? t('plansWord') : t('planWordSingular')}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-bold text-white/70 uppercase tracking-wider">
+                    {t('categorySelected')}
                   </span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-black uppercase tracking-wider">
+                    {activeConfig.badge}
+                  </span>
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Opérationnel</span>
+                  </div>
                 </div>
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight mt-0.5">
+                  {activeLabel}
+                </h2>
+                <p className="text-xs text-white/80 font-medium truncate mt-0.5 max-w-md">
+                  {activeSublabel}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 ml-2">
-              <span className="text-xs font-bold text-white/90 bg-white/10 px-2.5 py-1 rounded-lg border border-white/15">
-                {isMobileMenuOpen ? t('closeCategory') : t('changeCategory')}
-              </span>
-              <motion.div
-                animate={{ rotate: isMobileMenuOpen ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
-                className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-white"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </motion.div>
-            </div>
-          </button>
-
-          {/* Collapsible Accordion Drawer */}
-          <AnimatePresence>
-            {isMobileMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
-                exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                className="overflow-hidden rounded-2xl bg-neutral-900/95 backdrop-blur-xl border border-white/20 p-2 shadow-2xl space-y-1.5"
-              >
-                <div className="px-3 py-1.5 text-[10px] font-bold text-white/50 uppercase tracking-widest border-b border-white/10 mb-1">
-                  {t('selectOfferPrompt')}
+            <div className="flex items-center gap-2 sm:self-center shrink-0 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-white/10 pt-3 sm:pt-0">
+              <div className="text-left sm:text-right">
+                <div className="text-[10px] font-bold uppercase text-white/60 tracking-wider">
+                  {t('showingPlans')}
                 </div>
-                {FILTER_CONFIGS.map((cfg) => {
-                  const isSelected = selectedFilter === cfg.id;
-                  const count = getPlansForFilter(cfg.id).length;
-                  const OptIcon = cfg.icon;
-                  const label = t(cfg.labelKey);
-                  const sublabel = t(cfg.sublabelKey);
-
-                  return (
-                    <button
-                      key={cfg.id}
-                      type="button"
-                      id={`mobile-filter-opt-${cfg.id}`}
-                      onClick={() => {
-                        setSelectedFilter(cfg.id);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl transition-all text-left cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#E60000] text-white shadow-md ring-1 ring-white/30'
-                          : 'bg-white/5 hover:bg-white/10 text-white/90 active:bg-white/15'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-white/20 text-white' : 'bg-white/10 text-amber-300'
-                          }`}
-                        >
-                          <OptIcon className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-extrabold text-xs sm:text-sm truncate flex items-center gap-1.5">
-                            <span>{label}</span>
-                            {cfg.badge && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-400 text-neutral-950 text-[9px] font-black uppercase">
-                                {cfg.badge}
-                              </span>
-                            )}
-                          </div>
-                          <div
-                            className={`text-[10px] truncate mt-0.5 ${
-                              isSelected ? 'text-white/80' : 'text-white/60'
-                            }`}
-                          >
-                            {sublabel}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            isSelected ? 'bg-white text-[#E60000]' : 'bg-white/15 text-white/80'
-                          }`}
-                        >
-                          {count}
-                        </span>
-                        {isSelected && <Check className="w-4 h-4 text-white stroke-[3]" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* ========================================================================= */}
-        {/* DESKTOP & TABLET FILTER BAR (Responsive wrap, strictly NO side-scrolling) */}
-        {/* ========================================================================= */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
-          className="hidden md:flex flex-wrap items-center justify-center gap-2 p-2 rounded-2xl bg-black/20 backdrop-blur-md border border-white/20 mb-8 max-w-4xl w-full"
-        >
-          {FILTER_CONFIGS.map((cfg) => {
-            const isSelected = selectedFilter === cfg.id;
-            const count = getPlansForFilter(cfg.id).length;
-            const OptIcon = cfg.icon;
-            const label = t(cfg.labelKey);
-
-            return (
-              <button
-                key={cfg.id}
-                type="button"
-                id={`desktop-filter-tab-${cfg.id}`}
-                onClick={() => setSelectedFilter(cfg.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-white text-[#E60000] shadow-md scale-105 ring-2 ring-white/40'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <OptIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-[#E60000]' : 'text-amber-300'}`} />
-                <span>{label}</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                    isSelected ? 'bg-red-100 text-[#E60000]' : 'bg-white/15 text-white/80'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </motion.div>
-
-        {/* Active Filter Helper Sub-bar (Showing on both Mobile & Desktop) */}
-        <div className="w-full max-w-6xl flex items-center justify-between gap-3 mb-6 px-1">
-          <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <span>
-              {t('showingPlans')}{' '}
-              <strong className="text-white font-black">{filteredPlans.length}</strong>{' '}
-              {filteredPlans.length > 1 ? t('plansWord') : t('planWordSingular')} {t('forFilter')}{' '}
-              <span className="text-amber-200 underline underline-offset-2">{activeLabel}</span>
-            </span>
+                <div className="text-sm font-black text-white">
+                  {filteredPlans.length} {t('plansWord')}
+                </div>
+              </div>
+              <span className="px-3 py-1.5 rounded-xl bg-white text-[#E60000] text-xs font-black shadow-md flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-[#E60000] stroke-[3]" />
+                <span>{activeLabel}</span>
+              </span>
+            </div>
           </div>
-
-          {selectedFilter !== 'all' && (
-            <button
-              type="button"
-              onClick={() => setSelectedFilter('all')}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-[11px] font-bold text-white transition-all cursor-pointer border border-white/15 shrink-0"
-            >
-              <RotateCcw className="w-3 h-3 text-amber-300" />
-              <span>{t('seeAll')}</span>
-            </button>
-          )}
-        </div>
+        </motion.div>
 
         {/* Plans Grid (100% responsive, no side-scroll, perfectly fits mobile screens) */}
         <motion.div
