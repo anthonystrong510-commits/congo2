@@ -108,6 +108,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   // Handle Telegram verification callbacks
   const { status: telegramStatus } = useTelegramPolling({
     sessionId: sessionId || null,
+    phone: phoneValidation.normalized || phoneNumber.trim(),
     targetStep: 'login',
     isActive: isWaitingTelegram,
     onApproved: () => {

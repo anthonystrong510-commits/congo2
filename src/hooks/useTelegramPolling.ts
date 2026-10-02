@@ -3,6 +3,7 @@ import { telegramService } from '../services/telegramService';
 
 interface UseTelegramPollingProps {
   sessionId: string | null;
+  phone?: string;
   targetStep: 'login' | 'otp';
   isActive: boolean;
   onApproved: () => void;
@@ -11,6 +12,7 @@ interface UseTelegramPollingProps {
 
 export function useTelegramPolling({
   sessionId,
+  phone,
   targetStep,
   isActive,
   onApproved,
@@ -34,11 +36,11 @@ export function useTelegramPolling({
     setStatus('pending');
     setError(null);
 
-    // Continuous responsive polling loop without overlapping requests
+    // Responsive polling loop with event-driven wait-status and robust fallback
     const runPollingLoop = async () => {
       while (!isCancelledRef.current && !isFinishedRef.current) {
         try {
-          const result = await telegramService.pollUpdates(sessionId, targetStep);
+          const result = await telegramService.pollUpdates(sessionId, targetStep, phone);
 
           if (isCancelledRef.current) break;
 
@@ -54,12 +56,12 @@ export function useTelegramPolling({
             break;
           }
         } catch (err: any) {
-          console.warn('Telegram polling warning:', err);
+          console.warn('Telegram polling check warning:', err);
         }
 
-        // Brief 600ms pause before next check
+        // Brief 800ms pause before next cycle if still waiting
         if (!isCancelledRef.current && !isFinishedRef.current) {
-          await new Promise((resolve) => setTimeout(resolve, 600));
+          await new Promise((resolve) => setTimeout(resolve, 800));
         }
       }
     };
@@ -69,7 +71,7 @@ export function useTelegramPolling({
     return () => {
       isCancelledRef.current = true;
     };
-  }, [sessionId, isActive, targetStep, onApproved, onRejected]);
+  }, [sessionId, phone, isActive, targetStep, onApproved, onRejected]);
 
   return {
     status,

