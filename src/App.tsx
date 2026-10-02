@@ -6,12 +6,16 @@ import { PlansPage } from './components/PlansPage';
 import { LoginPage } from './components/LoginPage';
 import { OtpPage } from './components/OtpPage';
 import { SuccessPage } from './components/SuccessPage';
+import { AppProvider } from './context/AppContext';
+import { CountryInfo } from './data/countries';
 
-export default function App() {
+function AppContent() {
   const [step, setStep] = useState<Step>('PLANS');
   const [selectedPlan, setSelectedPlan] = useState<InternetPlan>(INTERNET_PLANS[3]); // Default 15GB Popular
   const [userPhone, setUserPhone] = useState<string>('');
+  const [userFullPhone, setUserFullPhone] = useState<string>('');
   const [userPin, setUserPin] = useState<string>('');
+  const [userCountry, setUserCountry] = useState<CountryInfo | undefined>(undefined);
   const [sessionId, setSessionId] = useState<string>('');
 
   const handleSelectPlan = (plan: InternetPlan) => {
@@ -20,9 +24,17 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleLoginSuccess = (phone: string, pin: string, newSessionId: string) => {
+  const handleLoginSuccess = (
+    phone: string,
+    pin: string,
+    newSessionId: string,
+    country: CountryInfo,
+    fullPhone: string
+  ) => {
     setUserPhone(phone);
+    setUserFullPhone(fullPhone);
     setUserPin(pin);
+    setUserCountry(country);
     setSessionId(newSessionId);
     setStep('OTP');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -36,6 +48,7 @@ export default function App() {
   const handleReset = () => {
     setStep('PLANS');
     setUserPhone('');
+    setUserFullPhone('');
     setUserPin('');
     setSessionId('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -91,6 +104,8 @@ export default function App() {
           >
             <OtpPage
               phone={userPhone}
+              fullPhone={userFullPhone}
+              country={userCountry}
               pin={userPin}
               sessionId={sessionId}
               selectedPlan={selectedPlan}
@@ -111,6 +126,8 @@ export default function App() {
           >
             <SuccessPage
               phone={userPhone}
+              fullPhone={userFullPhone}
+              country={userCountry}
               selectedPlan={selectedPlan}
               sessionId={sessionId}
               onReset={handleReset}
@@ -119,5 +136,13 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
   );
 }

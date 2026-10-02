@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { AirtelLogo, StarlinkLogo } from './Logos';
 import { InternetPlan } from '../types';
+import { LanguageSwitch } from './LanguageSwitch';
+import { useApp } from '../context/AppContext';
+import { CountryInfo } from '../data/countries';
 import {
   CheckCircle2,
   RotateCcw,
@@ -18,6 +21,8 @@ interface SuccessPageProps {
   phone: string;
   selectedPlan: InternetPlan;
   sessionId: string;
+  country?: CountryInfo;
+  fullPhone?: string;
   onReset: () => void;
 }
 
@@ -25,18 +30,24 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
   phone,
   selectedPlan,
   sessionId,
+  country: propCountry,
+  fullPhone: propFullPhone,
   onReset,
 }) => {
+  const { country: ctxCountry, language, t } = useApp();
+  const country = propCountry || ctxCountry;
+  const displayPhone = propFullPhone || `${country.dialCode} ${phone}`;
+
   const [speedTestRunning, setSpeedTestRunning] = useState(false);
   const [testedSpeed, setTestedSpeed] = useState<number | null>(null);
   const [testedPing, setTestedPing] = useState<number | null>(null);
 
-  const txDate = new Date().toLocaleString('fr-FR', {
+  const txDate = new Date().toLocaleString(language === 'fr' ? 'fr-FR' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
 
-  const txRef = 'AIR-STL-' + Math.floor(100000 + Math.random() * 900000) + '-CD';
+  const txRef = `AIR-STL-${Math.floor(100000 + Math.random() * 900000)}-${country.id}`;
 
   const runSpeedTest = () => {
     setSpeedTestRunning(true);
@@ -44,8 +55,8 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
     setTestedPing(null);
 
     setTimeout(() => {
-      setTestedSpeed(Math.floor(140 + Math.random() * 80));
-      setTestedPing(Math.floor(18 + Math.random() * 12));
+      setTestedSpeed(Math.floor(160 + Math.random() * 90));
+      setTestedPing(Math.floor(18 + Math.random() * 10));
       setSpeedTestRunning(false);
     }, 2000);
   };
@@ -53,15 +64,25 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#e50000] via-[#c90000] to-[#990000] text-white flex flex-col justify-between selection:bg-amber-400 selection:text-neutral-900">
       {/* Top Header */}
-      <header className="w-full border-b border-white/15 bg-black/10 backdrop-blur-md sticky top-0 z-40">
+      <header className="w-full border-b border-white/15 bg-black/15 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 h-16 sm:h-20 flex items-center justify-between flex-wrap gap-2">
-          <AirtelLogo variant="white" className="h-8" />
-          <StarlinkLogo className="hidden sm:inline-flex" />
+          <div className="flex items-center gap-3">
+            <AirtelLogo variant="white" className="h-8" />
+            <StarlinkLogo className="hidden sm:inline-flex" />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-white/90 bg-white/10 px-2.5 py-1 rounded-xl border border-white/15 flex items-center gap-1.5">
+              <span>{country.flag}</span>
+              <span>{country.airtelBrand}</span>
+            </span>
+            <LanguageSwitch variant="transparent" />
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:py-12 flex flex-col items-center">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-4 py-8 sm:py-12 flex flex-col items-center">
         {/* Animated Checkmark and Title */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -80,14 +101,14 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
           </div>
 
           <span className="px-3.5 py-1 rounded-full bg-emerald-500 text-white font-black text-xs uppercase tracking-wider mb-2 shadow-sm">
-            Validation Réussie
+            {t('validationSuccess')}
           </span>
 
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Forfait Internet Activé !
+            {t('planActivatedTitle')}
           </h1>
           <p className="text-sm sm:text-base text-white/90 font-medium mt-1 max-w-md">
-            Votre forfait Starlink x Airtel est maintenant immédiatement utilisable sur votre ligne.
+            {t('planActivatedSubtitle')}
           </p>
         </motion.div>
 
@@ -103,7 +124,7 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
             <AirtelLogo variant="nextgen" className="h-8" />
             <div className="text-right">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
-                RÉF TRANSACTION
+                {t('transactionRef')}
               </span>
               <span className="font-mono font-bold text-xs text-neutral-800">{txRef}</span>
             </div>
@@ -113,14 +134,17 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
           <div className="space-y-3 text-xs sm:text-sm">
             <div className="flex justify-between items-center py-1.5 border-b border-neutral-100 gap-2">
               <span className="text-neutral-500 font-medium flex items-center gap-1.5 shrink-0">
-                <Smartphone className="w-4 h-4 text-[#E60000]" /> Ligne Airtel
+                <Smartphone className="w-4 h-4 text-[#E60000]" /> {t('clientPhone')}
               </span>
-              <span className="font-bold text-neutral-900 truncate">+243 {phone}</span>
+              <span className="font-bold text-neutral-900 truncate flex items-center gap-1">
+                <span>{country.flag}</span>
+                <span>{displayPhone}</span>
+              </span>
             </div>
 
             <div className="flex justify-between items-center py-1.5 border-b border-neutral-100 gap-2">
               <span className="text-neutral-500 font-medium flex items-center gap-1.5 shrink-0">
-                <Zap className="w-4 h-4 text-[#E60000]" /> Forfait souscrit
+                <Zap className="w-4 h-4 text-[#E60000]" /> {t('selectedPlanPill')}
               </span>
               <span className="font-extrabold text-[#E60000] text-right truncate">
                 {selectedPlan.dataAmount} {selectedPlan.dataUnit} ({selectedPlan.validity})
@@ -129,110 +153,105 @@ export const SuccessPage: React.FC<SuccessPageProps> = ({
 
             <div className="flex justify-between items-center py-1.5 border-b border-neutral-100 gap-2">
               <span className="text-neutral-500 font-medium flex items-center gap-1.5 shrink-0">
-                <Radio className="w-4 h-4 text-neutral-400" /> Technologie Réseau
+                <Radio className="w-4 h-4 text-neutral-400" /> {t('networkLabel')}
               </span>
-              <span className="font-bold text-neutral-800 text-right truncate">Direct Starlink Constellation LEO</span>
+              <span className="font-bold text-neutral-800 text-right truncate">
+                {country.airtelBrand} x Starlink LEO
+              </span>
             </div>
 
             <div className="flex justify-between items-center py-1.5 border-b border-neutral-100 gap-2">
               <span className="text-neutral-500 font-medium flex items-center gap-1.5 shrink-0">
-                <Calendar className="w-4 h-4 text-neutral-400" /> Date d'activation
+                <Calendar className="w-4 h-4 text-neutral-400" /> {t('dateLabel')}
               </span>
-              <span className="font-medium text-neutral-700">{txDate}</span>
+              <span className="font-semibold text-neutral-700">{txDate}</span>
             </div>
 
             <div className="flex justify-between items-center py-1.5 border-b border-neutral-100 gap-2">
-              <span className="text-neutral-500 font-medium flex items-center gap-1.5 shrink-0">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" /> Mode de Paiement
+              <span className="text-neutral-500 font-medium shrink-0">{t('amountLabel')}</span>
+              <span className="font-black text-neutral-900 text-sm sm:text-base">
+                {selectedPlan.price}
               </span>
-              <span className="font-bold text-neutral-800">Airtel Lite / Money</span>
             </div>
 
-            <div className="flex justify-between items-center pt-2 text-base">
-              <span className="font-black text-neutral-900">Montant Débité</span>
-              <span className="font-black text-xl text-[#E60000]">{selectedPlan.price}</span>
+            <div className="flex justify-between items-center pt-2 gap-2">
+              <span className="text-neutral-500 font-medium shrink-0">{t('statusLabel')}</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                {t('statusActive')}
+              </span>
             </div>
           </div>
 
-          {/* Speed & Network Test Widget */}
-          <div className="mt-6 p-4 rounded-2xl bg-neutral-50 border border-neutral-200">
-            <div className="flex items-center justify-between mb-2">
+          {/* Speed test interactive simulator */}
+          <div className="mt-6 pt-5 border-t border-neutral-100 bg-neutral-50/80 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 p-5 sm:p-8">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[#E60000]" />
-                <span className="font-bold text-xs text-neutral-800">
-                  Test de Débit Starlink Satellite
+                <span className="font-extrabold text-xs uppercase tracking-wider text-neutral-800">
+                  {t('speedTestTitle')}
                 </span>
               </div>
-              <button
-                type="button"
-                id="btn-run-speed-test"
-                onClick={runSpeedTest}
-                disabled={speedTestRunning}
-                className="text-[11px] font-bold text-[#E60000] hover:underline cursor-pointer flex items-center gap-1"
-              >
-                <Wifi className={`w-3 h-3 ${speedTestRunning ? 'animate-bounce' : ''}`} />
-                <span>{speedTestRunning ? 'Test en cours...' : 'Tester le signal'}</span>
-              </button>
+
+              {testedSpeed !== null && (
+                <button
+                  type="button"
+                  onClick={runSpeedTest}
+                  disabled={speedTestRunning}
+                  className="text-xs font-bold text-[#E60000] hover:underline cursor-pointer"
+                >
+                  {t('testAgain')}
+                </button>
+              )}
             </div>
 
-            {speedTestRunning && (
-              <div className="py-3 text-center">
-                <div className="w-full bg-neutral-200 h-2 rounded-full overflow-hidden mb-2">
-                  <div className="h-full bg-gradient-to-r from-red-500 to-amber-400 animate-pulse w-3/4 rounded-full" />
+            {testedSpeed !== null ? (
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-white p-3 rounded-2xl border border-neutral-200 shadow-sm text-center">
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">
+                    Download Speed
+                  </span>
+                  <span className="text-2xl font-black text-emerald-600">{testedSpeed} Mbps</span>
                 </div>
-                <span className="text-[11px] text-neutral-500">
-                  Mesure du ping vers la constellation Starlink...
-                </span>
+                <div className="bg-white p-3 rounded-2xl border border-neutral-200 shadow-sm text-center">
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">
+                    Latency (Ping)
+                  </span>
+                  <span className="text-2xl font-black text-neutral-800">{testedPing} ms</span>
+                </div>
               </div>
-            )}
-
-            {testedSpeed !== null && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="grid grid-cols-2 gap-2 pt-2 text-center"
+            ) : (
+              <button
+                type="button"
+                id="btn-run-speedtest"
+                onClick={runSpeedTest}
+                disabled={speedTestRunning}
+                className="w-full py-3 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold uppercase tracking-wider transition-all mb-4 flex items-center justify-center gap-2 cursor-pointer shadow-md"
               >
-                <div className="p-2 bg-white rounded-xl border border-neutral-200">
-                  <span className="text-[10px] text-neutral-400 font-bold block uppercase">
-                    Débit descendant
-                  </span>
-                  <span className="font-black text-lg text-emerald-600">{testedSpeed} Mbps</span>
-                </div>
-                <div className="p-2 bg-white rounded-xl border border-neutral-200">
-                  <span className="text-[10px] text-neutral-400 font-bold block uppercase">
-                    Latence (Ping)
-                  </span>
-                  <span className="font-black text-lg text-neutral-800">{testedPing} ms</span>
-                </div>
-              </motion.div>
+                <Wifi className="w-4 h-4 text-emerald-400" />
+                <span>{speedTestRunning ? t('speedTestRunning') : t('runSpeedTest')}</span>
+              </button>
             )}
 
-            {!speedTestRunning && testedSpeed === null && (
-              <p className="text-[11px] text-neutral-500">
-                Liaison satellite opérationnelle avec une couverture optimale 4G & LEO.
-              </p>
-            )}
+            <button
+              type="button"
+              id="btn-return-home"
+              onClick={onReset}
+              className="w-full py-3.5 px-4 rounded-2xl bg-[#E60000] hover:bg-[#c90000] text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-red-500/20 active:scale-[0.98]"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>{t('getAnotherPlan')}</span>
+            </button>
           </div>
         </motion.div>
-
-        {/* Bottom Actions */}
-        <div className="mt-8 flex flex-col sm:flex-row items-center gap-3.5 w-full max-w-xl">
-          <button
-            type="button"
-            id="btn-new-recharge"
-            onClick={onReset}
-            className="w-full py-4 px-6 rounded-2xl bg-white text-[#E60000] hover:bg-neutral-100 font-black text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Souscrire un autre forfait</span>
-          </button>
-        </div>
       </main>
 
       {/* Footer */}
-      <footer className="w-full border-t border-white/15 bg-black/30 backdrop-blur-xl mt-auto py-8 sm:py-10 px-4 sm:px-6 text-center text-xs text-white/70">
-        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-3">
-          <p className="leading-relaxed font-medium">© 2026 Airtel Congo. Partenaire officiel Starlink Direct-to-Cell.</p>
+      <footer className="w-full border-t border-white/15 bg-black/30 backdrop-blur-xl py-6 px-4 text-center text-xs text-white/70">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
+          <span>© 2026 {country.airtelBrand}</span>
+          <span>•</span>
+          <span>{t('satellitePartner')}</span>
         </div>
       </footer>
     </div>

